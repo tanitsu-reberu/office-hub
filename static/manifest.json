@@ -1,0 +1,9 @@
+{
+  "name": "Team Office Hub",
+  "short_name": "Office",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e8edf5",
+  "theme_color": "#8b5cf6",
+  "icons": []
+}
