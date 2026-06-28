@@ -1,0 +1,10 @@
+.env
+office.db
+bridge/*.jsonl
+uploads/
+__pycache__/
+*.pyc
+scene/node_modules/
+scene/dist/
+_site/
+test-results/
