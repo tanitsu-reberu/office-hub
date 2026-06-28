@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -6,9 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -16,16 +14,9 @@ concurrency:
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Prepare static site
         shell: bash
@@ -38,24 +29,24 @@ jobs:
           HUB_BASE="${HUB_BASE:-/office-hub}"
           if [ -z "$HUB_BASE" ] && [ -n "$GITHUB_REPOSITORY" ]; then
             repo_name="${GITHUB_REPOSITORY#*/}"
-            if [ "$repo_name" != "" ]; then HUB_BASE="/$repo_name"; fi
+            if [ -n "$repo_name" ]; then HUB_BASE="/$repo_name"; fi
           fi
           rm -rf _site
           mkdir -p _site/static
           cp -r static/* _site/static/
           cp static/index.html _site/index.html
-          api_js="${HUB_API:-''}"
-          token_js="${HUB_TOKEN:-''}"
-          base_js="${HUB_BASE:-''}"
+          touch _site/.nojekyll
+          api_js="${HUB_API:-}"
+          token_js="${HUB_TOKEN:-}"
+          base_js="${HUB_BASE:-}"
           printf '%s\n' \
             "window.__HUB_API__ = '$api_js';" \
             "window.__HUB_TOKEN__ = '$token_js';" \
             "window.__HUB_BASE__ = '$base_js';" \
             > _site/static/hub-config.js
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Publish gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: _site
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
