@@ -41,7 +41,7 @@
     </header>
 
     <div class="cloud-banner hidden" id="cloud-banner" role="status">
-      <span>☁️ Облачный режим — чаты и фото доступны. Агенты ответят, когда ПК включён и в Cursor: «проверь офис».</span>
+      <span>☁️ Облачный режим — укажите путь к папке вручную (например <code>C:\Users\USER\проект</code>). Агенты в Cursor увидят его при «проверь офис».</span>
       <button type="button" class="btn btn-ghost btn-sm" id="btn-cloud-banner-close" title="Скрыть">×</button>
     </div>
 
@@ -94,7 +94,10 @@
                 <button type="button" class="btn btn-ghost btn-sm" id="btn-agent-thread-back">← Команда</button>
                 <div class="agent-thread-pills" id="agent-thread-pills"></div>
               </div>
-              <p id="chat-folder-path" class="chat-folder-path folder-drop-hint" title="">Папка проекта</p>
+              <div class="chat-folder-row">
+                <p id="chat-folder-path" class="chat-folder-path folder-drop-hint" title="">Папка проекта</p>
+                <button type="button" class="btn btn-ghost btn-sm btn-change-folder" id="btn-change-folder" title="Изменить папку проекта">📁 Путь</button>
+              </div>
               <p id="folder-drop-status" class="folder-drop-status hidden" role="status"></p>
               <div id="session-banner" class="session-banner hidden" role="status">
                 <span id="session-banner-text">Сессия активна</span>
@@ -206,7 +209,7 @@
       <label class="field-label" for="new-chat-name">Название</label>
       <input type="text" id="new-chat-name" class="field-input" placeholder="Мой проект" maxlength="120" />
       <label class="field-label" for="new-chat-folder">Папка</label>
-      <p class="folder-drop-hint-text">Перетащите папку из Проводника в поле ниже или на зону чата.</p>
+      <p class="folder-drop-hint-text" id="new-chat-folder-hint">Перетащите папку из Проводника или введите путь вручную.</p>
       <div class="folder-row folder-drop-target" id="new-chat-folder-drop">
         <input type="text" id="new-chat-folder" class="field-input" placeholder="C:\Users\USER\my-project" />
         <button type="button" class="btn btn-ghost btn-sm" id="btn-browse-folder">Обзор…</button>
@@ -215,6 +218,23 @@
       <div class="question-actions">
         <button type="button" class="btn btn-primary" id="btn-create-chat">Создать</button>
         <button type="button" class="btn btn-ghost" id="btn-cancel-chat">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="change-folder-modal" class="modal hidden" role="dialog" aria-label="Папка проекта">
+    <div class="modal-box">
+      <h3>Папка проекта</h3>
+      <p id="change-folder-hint">Путь на вашем ПК — агенты в Cursor откроют его при «проверь офис».</p>
+      <label class="field-label" for="change-folder-input">Путь к папке</label>
+      <div class="folder-row folder-drop-target" id="change-folder-drop">
+        <input type="text" id="change-folder-input" class="field-input" placeholder="C:\Users\USER\my-project" />
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-browse-folder-change">Обзор…</button>
+      </div>
+      <p id="change-folder-status" class="browse-status hidden"></p>
+      <div class="question-actions">
+        <button type="button" class="btn btn-primary" id="btn-confirm-change-folder">Сохранить</button>
+        <button type="button" class="btn btn-ghost" id="btn-cancel-change-folder">Отмена</button>
       </div>
     </div>
   </div>
@@ -266,6 +286,6 @@
   <script src="static/vendor/three.min.js?v=29"></script>
   <script src="static/office-3d.js?v=29"></script>
   <script src="static/office-2d-fallback.js?v=29"></script>
-  <script src="static/office.js?v=31"></script>
+  <script src="static/office.js?v=33"></script>
 </body>
 </html>

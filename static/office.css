@@ -597,18 +597,35 @@ body {
   margin: 0;
 }
 .iso-room[data-room] { cursor: pointer; }
-.chat-folder-path {
+.chat-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 4px 0 8px;
+  min-width: 0;
+}
+.chat-folder-path {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 0.65rem;
   color: var(--ui-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.btn-change-folder {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  padding: 2px 6px;
+}
 .folder-drop-hint::after {
   content: ' · перетащите папку сюда';
   color: var(--ui-text-subtle);
   font-weight: 400;
+}
+.folder-drop-cloud .folder-drop-hint::after {
+  content: ' · или нажмите «Путь»';
 }
 .folder-drop-hint-text {
   margin: 0 0 6px;

@@ -209,6 +209,7 @@ function updateChatHeader() {
   const chat = getActiveChat();
   const title = $('#chat-title');
   const folder = $('#chat-folder-path');
+  const changeBtn = $('#btn-change-folder');
   if (title) {
     if (activeAgentThread) {
       const meta = agentsMeta[activeAgentThread] || {};
@@ -222,6 +223,11 @@ function updateChatHeader() {
   if (folder) {
     folder.textContent = chat?.folder_path || 'Папка не выбрана';
     folder.title = chat?.folder_path || '';
+  }
+  if (changeBtn) {
+    const editable = Boolean(activeChatId && !activeAgentThread);
+    changeBtn.disabled = !editable;
+    changeBtn.classList.toggle('hidden', !editable);
   }
   updateRenameControls();
 }
@@ -543,6 +549,7 @@ async function selectChat(id) {
 function showNewChatModal() {
   $('#new-chat-name').value = '';
   $('#new-chat-folder').value = '';
+  updateFolderPathHints();
   $('#new-chat-modal')?.classList.remove('hidden');
 }
 
@@ -551,17 +558,30 @@ function hideNewChatModal() {
   setBrowseStatus('');
 }
 
+function resolveFolderPathInput(raw) {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return '';
+  return normalizeFolderPath(trimmed) || trimmed;
+}
+
 async function createChat() {
   const name = $('#new-chat-name')?.value?.trim();
-  const folder_path = $('#new-chat-folder')?.value?.trim();
-  if (!name || !folder_path) return;
-  const res = await api('/api/chats', {
-    method: 'POST',
-    body: JSON.stringify({ name, folder_path }),
-  });
-  chats.push(res.chat);
-  await selectChat(res.chat.id);
-  hideNewChatModal();
+  const folder_path = resolveFolderPathInput($('#new-chat-folder')?.value);
+  if (!name || !folder_path) {
+    setBrowseStatus('Укажите название и путь к папке', true);
+    return;
+  }
+  try {
+    const res = await api('/api/chats', {
+      method: 'POST',
+      body: JSON.stringify({ name, folder_path }),
+    });
+    chats.push(res.chat);
+    await selectChat(res.chat.id);
+    hideNewChatModal();
+  } catch (e) {
+    setBrowseStatus(e.message || 'Не удалось создать чат', true);
+  }
 }
 
 function setBrowseStatus(text, isError = false) {
@@ -578,25 +598,94 @@ function setBrowseStatus(text, isError = false) {
   el.classList.toggle('error', isError);
 }
 
-async function browseFolder() {
-  const btn = $('#btn-browse-folder');
+function setChangeFolderStatus(text, isError = false) {
+  const el = $('#change-folder-status');
+  if (!el) return;
+  if (!text) {
+    el.classList.add('hidden');
+    el.textContent = '';
+    el.classList.remove('error');
+    return;
+  }
+  el.textContent = text;
+  el.classList.remove('hidden');
+  el.classList.toggle('error', isError);
+}
+
+async function browseFolder(targetInputId = 'new-chat-folder', statusFn = setBrowseStatus) {
+  if (IS_CLOUD_MODE) {
+    statusFn('Обзор доступен только при локальном запуске (launch-office.bat). Введите путь вручную.', true);
+    return;
+  }
+  const btn = targetInputId === 'change-folder-input' ? $('#btn-browse-folder-change') : $('#btn-browse-folder');
   if (btn) btn.disabled = true;
-  setBrowseStatus('Выберите папку в окне Windows…');
+  statusFn('Выберите папку в окне Windows…');
   try {
     const res = await api('/api/pick-folder', { method: 'POST', body: '{}' });
     if (res.cancelled) {
-      setBrowseStatus('');
+      statusFn('');
       return;
     }
     if (res.path) {
-      $('#new-chat-folder').value = res.path;
-      setBrowseStatus('');
+      const input = $(`#${targetInputId}`);
+      if (input) input.value = res.path;
+      statusFn('');
     }
   } catch (e) {
-    setBrowseStatus(e.message || 'Не удалось открыть обзор', true);
+    statusFn(e.message || 'Не удалось открыть обзор', true);
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+function showChangeFolderModal() {
+  if (!activeChatId || activeAgentThread) return;
+  const chat = getActiveChat();
+  const input = $('#change-folder-input');
+  if (input) input.value = chat?.folder_path || '';
+  setChangeFolderStatus('');
+  updateFolderPathHints();
+  $('#change-folder-modal')?.classList.remove('hidden');
+}
+
+function hideChangeFolderModal() {
+  $('#change-folder-modal')?.classList.add('hidden');
+  setChangeFolderStatus('');
+}
+
+async function confirmChangeFolder() {
+  if (!activeChatId || activeAgentThread) return;
+  const folder_path = resolveFolderPathInput($('#change-folder-input')?.value);
+  if (!folder_path) {
+    setChangeFolderStatus('Укажите путь к папке', true);
+    return;
+  }
+  try {
+    await bindFolderToActiveChat(folder_path);
+    hideChangeFolderModal();
+  } catch (e) {
+    setChangeFolderStatus(e.message || 'Не удалось сохранить путь', true);
+  }
+}
+
+function updateFolderPathHints() {
+  const cloudHint =
+    'В облаке введите полный путь вручную (например C:\\Users\\USER\\проект). Обзор и drag-drop работают при launch-office.bat.';
+  const localHint = 'Перетащите папку из Проводника или введите путь вручную.';
+  const hint = IS_CLOUD_MODE ? cloudHint : localHint;
+  const newHint = $('#new-chat-folder-hint');
+  const changeHint = $('#change-folder-hint');
+  if (newHint) newHint.textContent = hint;
+  if (changeHint) changeHint.textContent = hint;
+  document.body.classList.toggle('folder-drop-cloud', IS_CLOUD_MODE);
+  const browseBtns = [$('#btn-browse-folder'), $('#btn-browse-folder-change')];
+  browseBtns.forEach((btn) => {
+    if (!btn) return;
+    btn.disabled = IS_CLOUD_MODE;
+    btn.title = IS_CLOUD_MODE
+      ? 'Обзор только при локальном запуске (launch-office.bat)'
+      : 'Выбрать папку в Проводнике';
+  });
 }
 
 function promptDeleteChat(id) {
@@ -775,9 +864,16 @@ function prefillNewChatFolder(path) {
 async function handleFolderDrop(path, zone) {
   if (!path) {
     const msg = IS_CLOUD_MODE
-      ? 'Не удалось прочитать путь. Drag-drop работает при локальном запуске (launch-office.bat). Введите путь вручную.'
+      ? 'Не удалось прочитать путь из перетаскивания. Нажмите «Путь» и введите вручную, например C:\\Users\\USER\\проект'
       : 'Не удалось прочитать путь. Перетащите папку из Проводника Windows или нажмите «Обзор…».';
     alert(msg);
+    return;
+  }
+
+  if (zone === 'change-folder') {
+    const input = $('#change-folder-input');
+    if (input) input.value = path;
+    setChangeFolderStatus('');
     return;
   }
 
@@ -838,6 +934,7 @@ function initFolderDropZones() {
   initFolderDropZone($('#chat-main-drop'), 'chat');
   initFolderDropZone($('#chat-sidebar'), 'sidebar');
   initFolderDropZone($('#new-chat-folder-drop'), 'new-chat');
+  initFolderDropZone($('#change-folder-drop'), 'change-folder');
 }
 
 function renderMessage(m, opts = {}) {
@@ -1984,6 +2081,7 @@ function startAppServices() {
   if (appServicesStarted) return;
   appServicesStarted = true;
   initCloudBanner();
+  updateFolderPathHints();
   initFolderDropZones();
   loadChats()
     .then(() => loadAgents())
@@ -2162,6 +2260,20 @@ $('#btn-new-chat-m')?.addEventListener('click', showNewChatModal);
 $('#btn-cancel-chat')?.addEventListener('click', hideNewChatModal);
 $('#btn-create-chat')?.addEventListener('click', () => createChat());
 $('#btn-browse-folder')?.addEventListener('click', () => browseFolder());
+$('#btn-browse-folder-change')?.addEventListener('click', () => browseFolder('change-folder-input', setChangeFolderStatus));
+$('#btn-change-folder')?.addEventListener('click', () => showChangeFolderModal());
+$('#btn-confirm-change-folder')?.addEventListener('click', () => confirmChangeFolder());
+$('#btn-cancel-change-folder')?.addEventListener('click', hideChangeFolderModal);
+$('#change-folder-input')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    confirmChangeFolder();
+  }
+  if (e.key === 'Escape') hideChangeFolderModal();
+});
+$('#chat-folder-path')?.addEventListener('click', () => {
+  if (activeChatId && !activeAgentThread) showChangeFolderModal();
+});
 $('#btn-open-folder')?.addEventListener('click', () => openActiveFolder());
 $('#btn-delete-chat')?.addEventListener('click', () => {
   if (activeChatId) promptDeleteChat(activeChatId);
