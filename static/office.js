@@ -181,6 +181,28 @@ function saveActiveChatId(id) {
   } catch (_) {}
 }
 
+function canRenameActiveChat() {
+  return Boolean(activeChatId && getActiveChat() && !activeAgentThread);
+}
+
+function updateRenameControls() {
+  const editable = canRenameActiveChat();
+  const title = $('#chat-title');
+  const btn = $('#btn-rename-chat');
+  const btnM = $('#btn-rename-chat-m');
+  if (title) {
+    title.classList.toggle('chat-title-editable', editable);
+    title.tabIndex = editable ? 0 : -1;
+    title.setAttribute('role', editable ? 'button' : 'heading');
+    title.title = editable ? 'Нажмите, чтобы переименовать' : '';
+  }
+  [btn, btnM].forEach((el) => {
+    if (!el) return;
+    el.disabled = !editable;
+    el.classList.toggle('hidden', !editable);
+  });
+}
+
 function updateChatHeader() {
   const chat = getActiveChat();
   const title = $('#chat-title');
@@ -198,6 +220,50 @@ function updateChatHeader() {
   if (folder) {
     folder.textContent = chat?.folder_path || 'Папка не выбрана';
     folder.title = chat?.folder_path || '';
+  }
+  updateRenameControls();
+}
+
+function showRenameChatModal() {
+  if (!canRenameActiveChat()) return;
+  const chat = getActiveChat();
+  const input = $('#rename-chat-input');
+  if (input) {
+    input.value = chat?.name || '';
+  }
+  $('#rename-chat-modal')?.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    input?.focus();
+    input?.select();
+  });
+}
+
+function hideRenameChatModal() {
+  $('#rename-chat-modal')?.classList.add('hidden');
+}
+
+async function confirmRenameChat() {
+  const name = $('#rename-chat-input')?.value?.trim();
+  if (!name) {
+    alert('Введите название чата.');
+    return;
+  }
+  if (!activeChatId) return;
+  const btn = $('#btn-confirm-rename-chat');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await api(`/api/chats/${activeChatId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+    const idx = chats.findIndex((c) => c.id === activeChatId);
+    if (idx >= 0) chats[idx] = res.chat;
+    hideRenameChatModal();
+    renderChatList();
+  } catch (e) {
+    alert(e.message || 'Не удалось переименовать чат');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1745,6 +1811,28 @@ function bootScene() {
 }
 
 $('#btn-agent-thread-back')?.addEventListener('click', () => closeAgentChat());
+
+$('#btn-rename-chat')?.addEventListener('click', () => showRenameChatModal());
+$('#btn-rename-chat-m')?.addEventListener('click', () => showRenameChatModal());
+$('#chat-title')?.addEventListener('click', () => {
+  if (canRenameActiveChat()) showRenameChatModal();
+});
+$('#chat-title')?.addEventListener('keydown', (e) => {
+  if (!canRenameActiveChat()) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    showRenameChatModal();
+  }
+});
+$('#btn-confirm-rename-chat')?.addEventListener('click', () => confirmRenameChat());
+$('#btn-cancel-rename-chat')?.addEventListener('click', hideRenameChatModal);
+$('#rename-chat-input')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    confirmRenameChat();
+  }
+  if (e.key === 'Escape') hideRenameChatModal();
+});
 
 $('#btn-new-chat')?.addEventListener('click', showNewChatModal);
 $('#btn-new-chat-m')?.addEventListener('click', showNewChatModal);

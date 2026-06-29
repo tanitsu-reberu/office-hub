@@ -12,7 +12,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#d8e0ea" />
-  <script src="static/hub-config.js?v=28"></script>
+  <script src="static/hub-config.js?v=29"></script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Team Office" />
   <title>Team Office — штаб агентов</title>
@@ -83,7 +83,10 @@
           <div class="chat-main">
             <div class="panel-head chat-panel-head">
               <div class="chat-head-top">
-                <h2 id="chat-title">Обсуждение</h2>
+                <div class="chat-title-wrap">
+                  <h2 id="chat-title" class="chat-title-text">Обсуждение</h2>
+                  <button type="button" class="btn btn-ghost btn-sm btn-rename-chat desktop-only" id="btn-rename-chat" title="Переименовать чат" aria-label="Переименовать чат">✎</button>
+                </div>
                 <select id="chat-select-mobile" class="chat-select-mobile mobile-only" aria-label="Выбор чата"></select>
                 <button type="button" class="btn btn-ghost btn-sm mobile-only" id="btn-new-chat-m">+ Чат</button>
               </div>
@@ -97,6 +100,7 @@
                 <button type="button" class="btn btn-ghost btn-sm btn-session-kill" id="btn-session-kill">Остановить</button>
               </div>
               <div class="chat-head-actions">
+                <button type="button" class="btn btn-ghost btn-sm mobile-only" id="btn-rename-chat-m" title="Переименовать чат">✎ Имя</button>
                 <button type="button" class="btn btn-ghost btn-sm" id="btn-session-start" title="15 мин авто-выполнения команд">Сессия 15 мин</button>
                 <button type="button" class="btn btn-ghost btn-sm" id="btn-open-folder" title="Открыть папку в Cursor">Открыть в Cursor</button>
                 <button type="button" class="btn btn-ghost btn-sm btn-delete-chat" id="btn-delete-chat" title="Удалить чат">Удалить</button>
@@ -213,6 +217,18 @@
     </div>
   </div>
 
+  <div id="rename-chat-modal" class="modal hidden" role="dialog" aria-label="Переименовать чат">
+    <div class="modal-box">
+      <h3>Переименовать чат</h3>
+      <label class="field-label" for="rename-chat-input">Название</label>
+      <input type="text" id="rename-chat-input" class="field-input" placeholder="Мой проект" maxlength="120" autocomplete="off" />
+      <div class="question-actions">
+        <button type="button" class="btn btn-primary" id="btn-confirm-rename-chat">Сохранить</button>
+        <button type="button" class="btn btn-ghost" id="btn-cancel-rename-chat">Отмена</button>
+      </div>
+    </div>
+  </div>
+
   <div id="delete-chat-modal" class="modal hidden" role="dialog" aria-label="Удалить чат">
     <div class="modal-box">
       <h3>Удалить чат?</h3>
@@ -244,10 +260,10 @@
     </div>
   </div>
 
-  <script src="static/themes.js?v=28"></script>
-  <script src="static/vendor/three.min.js?v=28"></script>
-  <script src="static/office-3d.js?v=28"></script>
-  <script src="static/office-2d-fallback.js?v=28"></script>
-  <script src="static/office.js?v=28"></script>
+  <script src="static/themes.js?v=29"></script>
+  <script src="static/vendor/three.min.js?v=29"></script>
+  <script src="static/office-3d.js?v=29"></script>
+  <script src="static/office-2d-fallback.js?v=29"></script>
+  <script src="static/office.js?v=29"></script>
 </body>
 </html>
