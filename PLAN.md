@@ -18,8 +18,8 @@
 |---|------|--------|
 | R1 | Push v28 (H4+H5) на GitHub | done |
 | H1 | Переименование чата в UI | **done** (v29) |
-| H2 | Badge непрочитанных (чаты + агенты) | **next** |
-| H3 | Drag-drop папки | pending |
+| H2 | Badge непрочитанных (чаты + агенты) | **done** (v30) |
+| H3 | Drag-drop папки | **next** |
 | H5b | Premium 3D клик по кабинету | pending |
 | B3.2 | Cloud backend | **done** — Railway `office-hub-production` |
 | B3.4 | Smoke Pages ↔ API ↔ WS | **done** (2026-06-29) |
@@ -46,7 +46,7 @@
 - [x] **H5** Личный чат — клик по кабинету, `target_agent`, `POST /api/agents/{id}/task` (v28, Classic+2D)
 - [ ] **H5b** Premium 3D (`gfx=high`) — клик по кабинету
 - [x] **H1** PATCH названия чата в UI (v29)
-- [ ] **H2** Badge непрочитанных (проектные чаты + личные потоки агентов)
+- [x] **H2** Badge непрочитанных — `read_cursors`, `/api/unread`, `/api/read`, бейджи v30
 - [ ] **H3** Drag-drop папки на зону чата
 
 ## Фазы C–G (готово)
@@ -79,3 +79,4 @@
 | 2026-06-28 | Backend | `target_agent`, `/api/agents/{id}/task` |
 | 2026-06-29 | Backend | Railway deploy, B3.4 smoke OK |
 | 2026-06-29 | Backend | `deploy/set_github_actions.py` — авто GitHub vars |
+| 2026-06-29 | Frontend | H2 unread badges v30 |

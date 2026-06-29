@@ -237,6 +237,17 @@ def init_db() -> None:
             conn.execute("ALTER TABLE messages ADD COLUMN target_agent TEXT")
         except sqlite3.OperationalError:
             pass
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS read_cursors (
+                chat_id INTEGER NOT NULL,
+                thread_key TEXT NOT NULL,
+                last_read_id INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (chat_id, thread_key)
+            )
+            """
+        )
 
         count = conn.execute("SELECT COUNT(*) AS c FROM chats").fetchone()["c"]
         if count == 0:
@@ -840,6 +851,90 @@ def _parse_json_col(raw: Any, default: Any) -> Any:
         return default
 
 
+def thread_key(target_agent: Optional[str]) -> str:
+    return target_agent if target_agent else "team"
+
+
+def _thread_message_filter(target_agent: Optional[str]) -> tuple[str, tuple[Any, ...]]:
+    if target_agent:
+        return "target_agent = ?", (target_agent,)
+    return "target_agent IS NULL", ()
+
+
+def _effective_last_read_id(conn: sqlite3.Connection, chat_id: int, tk: str) -> int:
+    row = conn.execute(
+        "SELECT last_read_id FROM read_cursors WHERE chat_id = ? AND thread_key = ?",
+        (chat_id, tk),
+    ).fetchone()
+    if row:
+        return int(row["last_read_id"])
+    target_agent = tk if tk != "team" else None
+    filt, params = _thread_message_filter(target_agent)
+    max_row = conn.execute(
+        f"SELECT COALESCE(MAX(id), 0) AS m FROM messages WHERE chat_id = ? AND {filt}",
+        (chat_id, *params),
+    ).fetchone()
+    return int(max_row["m"])
+
+
+def count_thread_unread(conn: sqlite3.Connection, chat_id: int, tk: str) -> int:
+    target_agent = tk if tk != "team" else None
+    filt, params = _thread_message_filter(target_agent)
+    last_read = _effective_last_read_id(conn, chat_id, tk)
+    row = conn.execute(
+        f"""
+        SELECT COUNT(*) AS c FROM messages
+        WHERE chat_id = ? AND {filt} AND id > ?
+        """,
+        (chat_id, *params, last_read),
+    ).fetchone()
+    return int(row["c"])
+
+
+def mark_thread_read(chat_id: int, target_agent: Optional[str]) -> dict[str, Any]:
+    tk = thread_key(target_agent)
+    filt, params = _thread_message_filter(target_agent)
+    now = utc_now()
+    with get_db() as conn:
+        max_row = conn.execute(
+            f"SELECT COALESCE(MAX(id), 0) AS m FROM messages WHERE chat_id = ? AND {filt}",
+            (chat_id, *params),
+        ).fetchone()
+        last_id = int(max_row["m"])
+        conn.execute(
+            """
+            INSERT INTO read_cursors (chat_id, thread_key, last_read_id, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(chat_id, thread_key) DO UPDATE SET
+                last_read_id = excluded.last_read_id,
+                updated_at = excluded.updated_at
+            """,
+            (chat_id, tk, last_id, now),
+        )
+    return {"chat_id": chat_id, "thread_key": tk, "last_read_id": last_id}
+
+
+def build_unread_snapshot() -> dict[str, Any]:
+    by_chat: dict[str, Any] = {}
+    with get_db() as conn:
+        chat_rows = conn.execute("SELECT id FROM chats ORDER BY id ASC").fetchall()
+        for chat_row in chat_rows:
+            cid = int(chat_row["id"])
+            team = count_thread_unread(conn, cid, "team")
+            agents: dict[str, int] = {}
+            agents_total = 0
+            for agent_id in WORK_AGENTS:
+                n = count_thread_unread(conn, cid, agent_id)
+                agents[agent_id] = n
+                agents_total += n
+            by_chat[str(cid)] = {
+                "team": team,
+                "agents": agents,
+                "total": team + agents_total,
+            }
+    return {"by_chat": by_chat}
+
+
 def row_to_message(row: sqlite3.Row) -> dict[str, Any]:
     meta = AGENTS.get(row["agent"], AGENTS["system"])
     keys = row.keys()
@@ -931,6 +1026,11 @@ class CreateChat(BaseModel):
 class UpdateChat(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     folder_path: Optional[str] = Field(default=None, min_length=1, max_length=500)
+
+
+class MarkRead(BaseModel):
+    chat_id: Optional[int] = None
+    target_agent: Optional[str] = None
 
 
 class AnswerQuestion(BaseModel):
@@ -1257,6 +1357,7 @@ async def delete_chat(chat_id: int) -> dict[str, Any]:
         conn.execute("DELETE FROM agent_questions WHERE chat_id = ?", (chat_id,))
         conn.execute("DELETE FROM agent_actions WHERE chat_id = ?", (chat_id,))
         conn.execute("DELETE FROM agent_sessions WHERE chat_id = ?", (chat_id,))
+        conn.execute("DELETE FROM read_cursors WHERE chat_id = ?", (chat_id,))
         conn.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
     return {"ok": True}
 
@@ -1401,6 +1502,21 @@ async def get_messages(
         "target_agent": target_agent,
         "channel": channel or ("agent" if target_agent else "all"),
     }
+
+
+@app.get("/api/unread")
+async def get_unread() -> dict[str, Any]:
+    return build_unread_snapshot()
+
+
+@app.post("/api/read")
+async def post_mark_read(body: MarkRead) -> dict[str, Any]:
+    cid = resolve_chat_id(body.chat_id)
+    if body.target_agent is not None and body.target_agent not in WORK_AGENTS:
+        raise HTTPException(400, "Unknown agent")
+    cursor = mark_thread_read(cid, body.target_agent)
+    unread = build_unread_snapshot()
+    return {"ok": True, "cursor": cursor, **unread}
 
 
 @app.post("/api/uploads")
