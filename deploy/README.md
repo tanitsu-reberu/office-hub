@@ -5,7 +5,7 @@
 | Компонент | Где | URL |
 |-----------|-----|-----|
 | UI (статика) | GitHub Pages | `https://tanitsu-reberu.github.io/office-hub/` |
-| API + WS + SQLite | Railway / Render | `https://your-hub.railway.app` |
+| API + WS + SQLite | Railway | `https://office-hub-production.up.railway.app` |
 
 Локально: `launch-office.bat` → `http://127.0.0.1:8765/?app=1&gfx=low`
 
@@ -26,14 +26,14 @@ git push -u origin main
 
 1. **Settings → Pages → Build: GitHub Actions**
 2. **Settings → Secrets and variables → Actions:**
-   - Variable `HUB_API` = `https://your-hub.railway.app`
+   - Variable `HUB_API` = `https://office-hub-production.up.railway.app`
    - Variable `HUB_BASE` = `/office-hub`
    - Secret `HUB_TOKEN` = тот же токен, что на Railway (для WebSocket с телефона)
 
 ### Локальная проверка сборки
 
 ```powershell
-$env:HUB_API = 'https://your-hub.railway.app'
+$env:HUB_API = 'https://office-hub-production.up.railway.app'
 $env:HUB_BASE = '/office-hub'
 .\scripts\prepare-pages.ps1
 # Открыть _site/index.html через локальный сервер или push в main
@@ -90,16 +90,27 @@ Dockerfile: [Dockerfile](../Dockerfile)
 
 На ПК с Cursor:
 
-1. `HUB_URL=https://your-hub.railway.app` в env или skill
+1. `HUB_URL=https://office-hub-production.up.railway.app` в env или skill
 2. `HUB_TOKEN` = тот же токен
 3. В Cursor: «проверь офис» — читает inbox с облака
 
 Без ПК: UI работает (чаты, фото), задачи копятся в inbox до следующего «проверь офис».
 
+### Автоматическая настройка GitHub Actions
+
+```powershell
+cd C:\Users\USER\office-hub
+python deploy\set_github_actions.py
+# или: powershell -File deploy\set-github-actions.ps1
+```
+
+Скрипт читает `HUB_TOKEN` из `.env`, ставит `HUB_API`, `HUB_BASE`, secret `HUB_TOKEN` через GitHub API и может запустить workflow.
+
 ## 4. Smoke checklist (B3.4)
 
-- [ ] Pages открывается, 3D Classic грузится
-- [ ] WS: индикатор «live» (нужен `HUB_TOKEN` в Pages build)
-- [ ] Создать чат, отправить сообщение
-- [ ] Загрузить фото
+- [x] `hub-config.js` на Pages → Railway URL + `HUB_TOKEN` (2026-06-29)
+- [x] `GET /api/health` → `ok: true`, `data_dir: /data`
+- [x] `POST /api/messages` с `X-Hub-Token`
+- [ ] Pages: 3D Classic грузится, WS «live» (ручная проверка в браузере)
+- [ ] Загрузить фото с телефона
 - [ ] `$team` → запись в inbox (с ПК + skill)

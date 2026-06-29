@@ -16,13 +16,13 @@
 
 | # | Фаза | Статус |
 |---|------|--------|
-| R1 | Push v28 (H4+H5) на GitHub | в работе |
-| H1 | Переименование чата в UI | pending |
-| H2 | Badge непрочитанных (чаты + агенты) | pending |
+| R1 | Push v28 (H4+H5) на GitHub | done |
+| H1 | Переименование чата в UI | **done** (v29) |
+| H2 | Badge непрочитанных (чаты + агенты) | **next** |
 | H3 | Drag-drop папки | pending |
 | H5b | Premium 3D клик по кабинету | pending |
-| B3.2 | Cloud backend | **blocked** — нет аккаунта Railway/Render |
-| B3.4 | Smoke Pages ↔ API ↔ WS | pending (после B3.2) |
+| B3.2 | Cloud backend | **done** — Railway `office-hub-production` |
+| B3.4 | Smoke Pages ↔ API ↔ WS | **done** (2026-06-29) |
 | Q1 | check-work A3 + G5 | pending |
 
 ## Фазы
@@ -32,11 +32,11 @@
 - [ ] **A3** Check-work — FPS smoke, WebGL errors
 - [x] **B1** Backend — CORS, DATA_DIR, HUB_TOKEN, Dockerfile, /api/health
 - [x] **B2** Frontend — `__HUB_API__` remote mode
-- [ ] **B3** Deploy — Pages workflow + cloud backend + skill update
+- [x] **B3** Deploy — Pages workflow + cloud backend + skill update
   - [x] **B3.1** GitHub Pages — repo `tanitsu-reberu/office-hub`, peaceiris → `gh-pages`
-  - [ ] **B3.2** Cloud backend — Railway/Render + volume `DATA_DIR` *(ждём регистрацию аккаунта)*
+  - [x] **B3.2** Cloud backend — Railway `office-hub-production.up.railway.app`, volume `/data`
   - [x] **B3.3** Skill + `deploy/README.md`
-  - [ ] **B3.4** Smoke Pages ↔ API ↔ WS
+  - [x] **B3.4** Smoke Pages ↔ API ↔ WS
 
 ## Фаза H+ — Чаты и агенты
 
@@ -45,7 +45,7 @@
 - [ ] **H4** Floating chat window — позже
 - [x] **H5** Личный чат — клик по кабинету, `target_agent`, `POST /api/agents/{id}/task` (v28, Classic+2D)
 - [ ] **H5b** Premium 3D (`gfx=high`) — клик по кабинету
-- [ ] **H1** PATCH названия чата в UI
+- [x] **H1** PATCH названия чата в UI (v29)
 - [ ] **H2** Badge непрочитанных (проектные чаты + личные потоки агентов)
 - [ ] **H3** Drag-drop папки на зону чата
 
@@ -62,7 +62,7 @@
 
 - Не добавлять тяжёлый postfx (DoF, global bloom, particles)
 - Автоответы Cursor — только при включённом ПК + Cursor
-- B3.2: пользователь без аккаунта Railway — нужна регистрация (free tier)
+- Railway free tier: следить за лимитами; volume `/data` обязателен
 
 ## Риски
 
@@ -77,3 +77,5 @@
 | 2026-06-28 | Orchestrator | Roadmap R1→Q1 утверждён; Railway blocked |
 | 2026-06-28 | Frontend | v28: H5 личные чаты, H4 collapse |
 | 2026-06-28 | Backend | `target_agent`, `/api/agents/{id}/task` |
+| 2026-06-29 | Backend | Railway deploy, B3.4 smoke OK |
+| 2026-06-29 | Backend | `deploy/set_github_actions.py` — авто GitHub vars |
