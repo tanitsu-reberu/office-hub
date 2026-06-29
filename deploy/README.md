@@ -43,19 +43,46 @@ Workflow: [.github/workflows/pages.yml](../.github/workflows/pages.yml)
 
 ## 2. Railway (backend)
 
-1. New Project → Deploy from GitHub → `office-hub`
-2. **Volume** mount at `/data`
-3. **Variables:**
+Репозиторий содержит `railway.toml` + `Dockerfile` — Railway подхватит Docker-сборку автоматически.
 
-| Variable | Value |
-|----------|-------|
-| `DATA_DIR` | `/data` |
-| `HUB_TOKEN` | случайный UUID (как в `.env` локально) |
-| `ALLOWED_ORIGINS` | `https://tanitsu-reberu.github.io,http://127.0.0.1:8765,http://localhost:8765` |
-| `PORT` | (Railway задаёт автоматически) |
-| `CURSOR_API_LOCALHOST_ONLY` | `1` (по умолчанию; cursor inject только с ПК) |
+### Вариант A — Dashboard (рекомендуется после регистрации через GitHub)
 
-4. Health check: `GET /api/health`
+1. https://railway.com/new → **Deploy from GitHub repo** → `tanitsu-reberu/office-hub`
+2. **Service → Settings → Volumes** → Add Volume → mount path **`/data`**
+3. **Variables** (Raw Editor):
+
+```env
+DATA_DIR=/data
+HUB_TOKEN=<тот же токен что в office-hub/.env>
+ALLOWED_ORIGINS=https://tanitsu-reberu.github.io,http://127.0.0.1:8765,http://localhost:8765
+CURSOR_API_LOCALHOST_ONLY=1
+```
+
+4. **Networking** → **Generate Domain** → скопировать URL (`https://….up.railway.app`)
+5. Health: `GET https://YOUR-DOMAIN.up.railway.app/api/health` → `{"ok":true,...}`
+
+### Вариант B — CLI
+
+```powershell
+npm install -g @railway/cli
+railway login
+cd C:\Users\USER\office-hub
+powershell -ExecutionPolicy Bypass -File deploy\railway-setup.ps1
+# Dashboard: добавить Volume /data + Generate Domain
+railway up
+```
+
+### После деплоя — связать GitHub Pages
+
+**Settings → Secrets and variables → Actions** в `tanitsu-reberu/office-hub`:
+
+| Имя | Тип | Значение |
+|-----|-----|----------|
+| `HUB_API` | Variable | `https://YOUR-DOMAIN.up.railway.app` |
+| `HUB_BASE` | Variable | `/office-hub` |
+| `HUB_TOKEN` | Secret | тот же `HUB_TOKEN` |
+
+Затем: **Actions → Deploy to GitHub Pages → Run workflow**
 
 Dockerfile: [Dockerfile](../Dockerfile)
 
