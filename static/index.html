@@ -12,7 +12,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#d8e0ea" />
-  <script src="static/hub-config.js?v=26"></script>
+  <script src="static/hub-config.js?v=28"></script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Team Office" />
   <title>Team Office — штаб агентов</title>
@@ -33,6 +33,7 @@
         <button type="button" class="btn btn-ghost btn-sm" id="btn-eco" title="2D режим — почти не грузит GPU">Эко 2D</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-reset-cam" title="Сбросить камеру">Камера</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-notify" title="Очистить уведомления">Очистить</button>
+        <button type="button" class="btn btn-ghost btn-sm desktop-only" id="btn-toggle-chat" title="Свернуть чат — офис на весь экран">Свернуть чат</button>
         <button type="button" class="btn btn-ghost btn-sm lan-btn" id="btn-lan" title="URL для телефона">Телефон</button>
         <span class="render-mode" id="render-mode-badge" title="Режим визуализации">…</span>
         <span class="conn"><span id="conn-dot" class="conn-dot"></span><span id="conn-label">…</span></span>
@@ -47,12 +48,14 @@
     <div class="active-task hidden" id="active-task"></div>
 
     <main class="main-layout">
+      <!-- Office panel -->
       <section class="panel panel-office" id="panel-office" data-panel="office">
         <div class="panel-toolbar desktop-only">
           <button type="button" class="btn btn-ghost btn-sm" id="btn-meeting-d">Собрание</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-desks-d">Кабинеты</button>
         </div>
         <div class="office-viewport" id="office-viewport">
+          <div class="office-swipe-edge office-swipe-edge--right mobile-only" id="office-swipe-edge" aria-hidden="true"></div>
           <div id="office-loader" class="office-loader">
             <div class="loader-spin"></div>
             <p>Загрузка офиса…</p>
@@ -61,12 +64,13 @@
           <div id="office-2d" class="office-2d-host hidden"></div>
           <div id="head-labels" class="head-labels-layer"></div>
           <div class="office-legend">
-            <span>Мышь / свайп — вращение</span>
+            <span>Клик по кабинету — личный чат · свайп влево — чат</span>
             <span>Колесо / pinch — zoom</span>
           </div>
         </div>
       </section>
 
+      <!-- Chat panel -->
       <section class="panel panel-chat" id="panel-chat" data-panel="chat">
         <div class="chat-layout">
           <aside class="chat-sidebar desktop-only" id="chat-sidebar">
@@ -82,6 +86,10 @@
                 <h2 id="chat-title">Обсуждение</h2>
                 <select id="chat-select-mobile" class="chat-select-mobile mobile-only" aria-label="Выбор чата"></select>
                 <button type="button" class="btn btn-ghost btn-sm mobile-only" id="btn-new-chat-m">+ Чат</button>
+              </div>
+              <div id="agent-thread-bar" class="agent-thread-bar hidden" role="toolbar" aria-label="Личные чаты агентов">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-agent-thread-back">← Команда</button>
+                <div class="agent-thread-pills" id="agent-thread-pills"></div>
               </div>
               <p id="chat-folder-path" class="chat-folder-path" title="">Папка проекта</p>
               <div id="session-banner" class="session-banner hidden" role="status">
@@ -109,6 +117,7 @@
         </div>
       </section>
 
+      <!-- Team panel (mobile + sidebar on desktop) -->
       <section class="panel panel-team" id="panel-team" data-panel="team">
         <div class="panel-head">
           <h2>Команда</h2>
@@ -126,6 +135,9 @@
         </div>
       </section>
     </main>
+
+    <button type="button" class="chat-fab desktop-only hidden" id="chat-fab" title="Открыть чат" aria-label="Открыть чат">💬</button>
+    <div class="chat-drawer-backdrop desktop-only hidden" id="chat-drawer-backdrop" aria-hidden="true"></div>
 
     <nav class="mobile-tabs mobile-only" id="mobile-tabs" aria-label="Навигация">
       <button type="button" class="tab active" data-tab="office">Офис</button>
@@ -232,10 +244,10 @@
     </div>
   </div>
 
-  <script src="static/themes.js?v=26"></script>
-  <script src="static/vendor/three.min.js?v=26"></script>
-  <script src="static/office-3d.js?v=26"></script>
-  <script src="static/office-2d-fallback.js?v=26"></script>
-  <script src="static/office.js?v=26"></script>
+  <script src="static/themes.js?v=28"></script>
+  <script src="static/vendor/three.min.js?v=28"></script>
+  <script src="static/office-3d.js?v=28"></script>
+  <script src="static/office-2d-fallback.js?v=28"></script>
+  <script src="static/office.js?v=28"></script>
 </body>
 </html>

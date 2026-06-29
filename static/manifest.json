@@ -1,9 +1,11 @@
 {
-  "name": "Team Office Hub",
+  "name": "Team Office",
   "short_name": "Office",
-  "start_url": "./",
+  "description": "Визуальный штаб агентов команды",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#e8edf5",
-  "theme_color": "#8b5cf6",
-  "icons": []
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "orientation": "any",
+  "lang": "ru"
 }

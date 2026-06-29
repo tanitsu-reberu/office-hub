@@ -105,6 +105,10 @@ window.Office3DLegacy = (function () {
   let scene, camera, renderer;
   let agents = {};
   let monitors = {};
+  let cubicles = {};
+  let onAgentDeskClick = null;
+  let raycaster = null;
+  let pointerNdc = null;
   let clock, meetingActive = false;
   let visitIndex = {};
   let animId = null;
@@ -263,8 +267,10 @@ window.Office3DLegacy = (function () {
     lamp.position.set(0.5, 1.8, 0.2);
 
     trackCubicleMats(floor, back, topTrim, deskTop, monitorFrame, chair);
+    g.userData.agentId = label;
     g.add(floor, back, topTrim, deskTop, monitorFrame, screen, chair, lamp);
     scene.add(g);
+    cubicles[label] = g;
     return screen;
   }
 
@@ -673,6 +679,49 @@ window.Office3DLegacy = (function () {
     showHeadBubble(id, `${a.meta.name} — кабинет`);
   }
 
+  function setAgentDeskClickHandler(fn) {
+    onAgentDeskClick = typeof fn === 'function' ? fn : null;
+  }
+
+  function pickAgentAt(clientX, clientY) {
+    if (!raycaster || !pointerNdc || !camera || !canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointerNdc, camera);
+    const groups = Object.values(cubicles);
+    const hits = raycaster.intersectObjects(groups, true);
+    for (const hit of hits) {
+      let obj = hit.object;
+      while (obj) {
+        if (obj.userData?.agentId) return obj.userData.agentId;
+        obj = obj.parent;
+      }
+    }
+    return null;
+  }
+
+  function setupDeskClicks() {
+    if (!canvas) return;
+    let dragMoved = false;
+    let downX = 0;
+    let downY = 0;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      dragMoved = false;
+      downX = e.clientX;
+      downY = e.clientY;
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) dragMoved = true;
+    });
+    canvas.addEventListener('pointerup', (e) => {
+      if (dragMoved || e.button !== 0) return;
+      const id = pickAgentAt(e.clientX, e.clientY);
+      if (id && onAgentDeskClick) onAgentDeskClick(id);
+    });
+  }
+
   function showInitError(msg) {
     if (!errorEl) {
       errorEl = document.createElement('div');
@@ -765,6 +814,9 @@ window.Office3DLegacy = (function () {
       renderer.shadowMap.enabled = !lowPower;
 
       controls = createSimpleControls(camera, canvas);
+      raycaster = new THREE.Raycaster();
+      pointerNdc = new THREE.Vector2();
+      setupDeskClicks();
 
       const hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, 0.9);
       scene.add(hemi);
@@ -865,6 +917,8 @@ window.Office3DLegacy = (function () {
     window.removeEventListener('resize', onResize);
     if (onThemeChange) window.removeEventListener('office-theme-change', onThemeChange);
     onThemeChange = null;
+    onAgentDeskClick = null;
+    cubicles = {};
     userNameTag = null;
     themeParts.floor = null;
     themeParts.grid = null;
@@ -886,5 +940,6 @@ window.Office3DLegacy = (function () {
     clearNotifications,
     resetCamera,
     focusAgent,
+    setAgentDeskClickHandler,
   };
 })();

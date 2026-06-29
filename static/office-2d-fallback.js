@@ -10,7 +10,7 @@ window.Office2D = (function () {
     owencloud: { name: 'OwenCloud', emoji: '🏭', color: '#f59e0b', x: 78, y: 68 },
   };
 
-  let host, agents = {}, notifyStack;
+  let host, agents = {}, notifyStack, onAgentDeskClick = null;
 
   function buildDOM() {
     host.innerHTML = `
@@ -42,6 +42,13 @@ window.Office2D = (function () {
         home: { x: AGENTS[id].x, y: AGENTS[id].y + 8 },
         meta: AGENTS[id],
       };
+    });
+
+    host.querySelectorAll('[data-room]').forEach((room) => {
+      room.addEventListener('click', () => {
+        const id = room.dataset.room;
+        if (id && onAgentDeskClick) onAgentDeskClick(id);
+      });
     });
   }
 
@@ -130,6 +137,10 @@ window.Office2D = (function () {
 
   function resetCamera() {}
 
+  function setAgentDeskClickHandler(fn) {
+    onAgentDeskClick = typeof fn === 'function' ? fn : null;
+  }
+
   function clearNotifications() {
     if (notifyStack) notifyStack.innerHTML = '';
     window.Office3D?.clearNotifications?.();
@@ -143,6 +154,7 @@ window.Office2D = (function () {
     onStatus,
     focusAgent,
     resetCamera,
+    setAgentDeskClickHandler,
     clearNotifications,
   };
 })();

@@ -15,10 +15,17 @@ let activeSession = null;
 let activeSessionProposal = null;
 let sessionCountdownTimer = null;
 let activeChatId = null;
+let activeAgentThread = null;
+let agentsMeta = {};
 let chats = [];
 let chatPendingDelete = null;
 const CHAT_STORAGE_KEY = 'office_active_chat_id';
 const THEME_STORAGE_KEY = 'office_theme';
+const CHAT_COLLAPSED_KEY = 'office_chat_collapsed';
+const MOBILE_TAB_ORDER = ['office', 'chat', 'team'];
+
+let chatCollapsed = false;
+let chatDrawerOpen = false;
 
 function getCurrentTheme() {
   return document.documentElement.dataset.theme || window.OFFICE_THEMES?.default || 'light';
@@ -160,6 +167,13 @@ function isEventForActiveChat(data) {
   return data.chat_id === activeChatId;
 }
 
+function isMessageForActiveThread(m) {
+  if (!m || !isEventForActiveChat(m)) return false;
+  const ta = m.target_agent || null;
+  if (activeAgentThread) return ta === activeAgentThread;
+  return ta == null;
+}
+
 function saveActiveChatId(id) {
   activeChatId = id;
   try {
@@ -171,10 +185,85 @@ function updateChatHeader() {
   const chat = getActiveChat();
   const title = $('#chat-title');
   const folder = $('#chat-folder-path');
-  if (title) title.textContent = chat?.name || 'Обсуждение';
+  if (title) {
+    if (activeAgentThread) {
+      const meta = agentsMeta[activeAgentThread] || {};
+      title.textContent = `${meta.emoji || '💬'} ${meta.name || activeAgentThread}`;
+      title.style.color = meta.color || '';
+    } else {
+      title.textContent = chat?.name || 'Обсуждение';
+      title.style.color = '';
+    }
+  }
   if (folder) {
     folder.textContent = chat?.folder_path || 'Папка не выбрана';
     folder.title = chat?.folder_path || '';
+  }
+}
+
+function renderAgentThreadPills() {
+  const container = $('#agent-thread-pills');
+  if (!container) return;
+  container.innerHTML = AGENT_ORDER.map((id) => {
+    const a = agentsMeta[id] || {};
+    const active = id === activeAgentThread;
+    return `<button type="button" class="agent-thread-pill${active ? ' active' : ''}" data-agent-thread="${id}" style="--accent:${a.color || '#64748b'}">${a.emoji || '•'} ${esc(a.name || id)}</button>`;
+  }).join('');
+  container.querySelectorAll('[data-agent-thread]').forEach((btn) => {
+    btn.addEventListener('click', () => openAgentChat(btn.dataset.agentThread));
+  });
+}
+
+function updateAgentThreadUI() {
+  const bar = $('#agent-thread-bar');
+  const summonBtn = $('#btn-summon');
+  const inputEl = $('#chat-input');
+  if (activeAgentThread) {
+    bar?.classList.remove('hidden');
+    renderAgentThreadPills();
+    if (inputEl) {
+      const meta = agentsMeta[activeAgentThread] || {};
+      inputEl.placeholder = `Поручение для ${meta.name || activeAgentThread}…`;
+    }
+    summonBtn?.classList.add('hidden');
+  } else {
+    bar?.classList.add('hidden');
+    if (inputEl) inputEl.placeholder = 'Напишите задачу команде…';
+    summonBtn?.classList.remove('hidden');
+  }
+  updateChatHeader();
+  document.querySelectorAll('[data-team-card]').forEach((card) => {
+    card.classList.toggle('active-thread', card.dataset.teamCard === activeAgentThread);
+  });
+}
+
+function openAgentChat(agentId) {
+  if (!WORK_AGENTS.has(agentId)) return;
+  activeAgentThread = agentId;
+  if (sceneApi?.focusAgent) sceneApi.focusAgent(agentId);
+  if (isDesktopLayout() && chatCollapsed) openChatDrawer();
+  setMobileTab('chat');
+  updateAgentThreadUI();
+  historyLoaded = false;
+  loadHistory().then(() => {
+    historyLoaded = true;
+    input?.focus();
+  });
+}
+
+function closeAgentChat() {
+  if (!activeAgentThread) return;
+  activeAgentThread = null;
+  updateAgentThreadUI();
+  historyLoaded = false;
+  loadHistory().then(() => {
+    historyLoaded = true;
+  });
+}
+
+function wireSceneAgentClicks() {
+  if (sceneApi?.setAgentDeskClickHandler) {
+    sceneApi.setAgentDeskClickHandler((id) => openAgentChat(id));
   }
 }
 
@@ -243,6 +332,8 @@ async function loadChats() {
 async function selectChat(id) {
   if (!id || id === activeChatId) return;
   saveActiveChatId(id);
+  activeAgentThread = null;
+  updateAgentThreadUI();
   renderChatList();
   hideActiveTask();
   hideQuestionModal();
@@ -344,6 +435,8 @@ async function confirmDeleteChat() {
     hideDeleteChatModal();
     if (activeChatId === id) {
       saveActiveChatId(chats[0]?.id);
+      activeAgentThread = null;
+      updateAgentThreadUI();
       feed.innerHTML = '';
       hideActiveTask();
       hideQuestionModal();
@@ -421,11 +514,7 @@ function renderTeamCards(agentsMeta) {
   }).join('');
 
   teamCards.querySelectorAll('.team-card').forEach((card) => {
-    card.addEventListener('click', () => {
-      const id = card.dataset.teamCard;
-      if (sceneApi?.focusAgent) sceneApi.focusAgent(id);
-      setMobileTab('office');
-    });
+    card.addEventListener('click', () => openAgentChat(card.dataset.teamCard));
   });
 }
 
@@ -469,7 +558,10 @@ async function api(path, opts = {}) {
 
 async function loadHistory() {
   if (!activeChatId) return;
-  const { messages } = await api(`/api/messages?chat_id=${activeChatId}&limit=60`);
+  let url = `/api/messages?chat_id=${activeChatId}&limit=60`;
+  if (activeAgentThread) url += `&target_agent=${encodeURIComponent(activeAgentThread)}`;
+  else url += '&channel=team';
+  const { messages } = await api(url);
   feed.innerHTML = '';
   messages.forEach((m) => renderMessage(m, { live: false }));
   historyLoaded = true;
@@ -489,7 +581,9 @@ async function loadStatuses() {
 
 async function loadAgents() {
   const { agents } = await api('/api/agents');
-  renderTeamCards(agents);
+  agentsMeta = agents || {};
+  renderTeamCards(agentsMeta);
+  renderAgentThreadPills();
 }
 
 async function summonTeam() {
@@ -648,16 +742,28 @@ form.addEventListener('submit', async (e) => {
     }
     input.value = '';
     clearPhotoPreview();
-    await api('/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        text,
-        agent: 'user',
-        source: 'office',
-        attachments,
-        chat_id: activeChatId,
-      }),
-    });
+    if (activeAgentThread) {
+      await api(`/api/agents/${activeAgentThread}/task`, {
+        method: 'POST',
+        body: JSON.stringify({
+          text,
+          source: 'office',
+          attachments,
+          chat_id: activeChatId,
+        }),
+      });
+    } else {
+      await api('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          text,
+          agent: 'user',
+          source: 'office',
+          attachments,
+          chat_id: activeChatId,
+        }),
+      });
+    }
   } catch (err) {
     setPhotoUploadStatus('');
     alert(err.message || 'Не удалось отправить');
@@ -720,6 +826,7 @@ async function switchToEco2D() {
     sceneApi = api2d;
     setRenderMode('2D Эко · без GPU');
     updateGfxButtons();
+    wireSceneAgentClicks();
   }
 }
 
@@ -744,6 +851,7 @@ async function switchTo3D() {
     const ok = await trySceneEngine(api, host3d, host2d, labels, notify, engine);
     if (ok) {
       sceneApi = api;
+      wireSceneAgentClicks();
       let modeLabel = engine.label;
       if (engine.waitReady && typeof api.getGfxTier === 'function') {
         const tier = api.getGfxTier();
@@ -779,18 +887,247 @@ function setMobileTab(tab) {
   if (tab === 'office') setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
 }
 
+function getActiveMobileTab() {
+  const el = document.querySelector('.mobile-tabs .tab.active');
+  return el?.dataset.tab || 'office';
+}
+
+function stepMobileTab(dir) {
+  const idx = MOBILE_TAB_ORDER.indexOf(getActiveMobileTab());
+  if (idx < 0) return;
+  const next = idx + dir;
+  if (next >= 0 && next < MOBILE_TAB_ORDER.length) setMobileTab(MOBILE_TAB_ORDER[next]);
+}
+
+function isDesktopLayout() {
+  return window.matchMedia('(min-width: 1024px)').matches;
+}
+
+function updateTopbarOffset() {
+  const main = $('.main-layout');
+  if (!main) return;
+  document.documentElement.style.setProperty('--topbar-offset', `${main.getBoundingClientRect().top}px`);
+}
+
+function applyChatCollapseUI() {
+  const layout = $('.main-layout');
+  const fab = $('#chat-fab');
+  const backdrop = $('#chat-drawer-backdrop');
+  const btn = $('#btn-toggle-chat');
+  if (!layout) return;
+
+  if (!isDesktopLayout()) {
+    layout.classList.remove('chat-collapsed', 'chat-drawer-open');
+    fab?.classList.add('hidden');
+    backdrop?.classList.add('hidden');
+    backdrop?.classList.remove('visible');
+    if (btn) btn.textContent = 'Свернуть чат';
+    return;
+  }
+
+  layout.classList.toggle('chat-collapsed', chatCollapsed);
+  layout.classList.toggle('chat-drawer-open', chatCollapsed && chatDrawerOpen);
+
+  if (chatCollapsed) {
+    updateTopbarOffset();
+    fab?.classList.toggle('hidden', chatDrawerOpen);
+    backdrop?.classList.toggle('hidden', !chatDrawerOpen);
+    backdrop?.classList.toggle('visible', chatDrawerOpen);
+    if (btn) btn.textContent = chatDrawerOpen ? 'Скрыть чат' : 'Развернуть';
+  } else {
+    fab?.classList.add('hidden');
+    backdrop?.classList.add('hidden');
+    backdrop?.classList.remove('visible');
+    chatDrawerOpen = false;
+    if (btn) btn.textContent = 'Свернуть чат';
+  }
+
+  if (chatCollapsed && chatDrawerOpen) {
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+  }
+}
+
+function setChatCollapsed(collapsed, { openDrawer = false } = {}) {
+  chatCollapsed = collapsed;
+  chatDrawerOpen = collapsed && openDrawer;
+  try {
+    localStorage.setItem(CHAT_COLLAPSED_KEY, chatCollapsed ? '1' : '0');
+  } catch (_) {}
+  applyChatCollapseUI();
+}
+
+function openChatDrawer() {
+  if (!chatCollapsed || !isDesktopLayout()) return;
+  chatDrawerOpen = true;
+  applyChatCollapseUI();
+}
+
+function closeChatDrawer() {
+  if (!chatDrawerOpen) return;
+  chatDrawerOpen = false;
+  applyChatCollapseUI();
+}
+
+function bindHorizontalSwipe(el, handlers) {
+  if (!el) return;
+  let x0 = null;
+  let y0 = null;
+
+  const onEnd = (clientX, clientY) => {
+    if (x0 == null) return;
+    const dx = clientX - x0;
+    const dy = clientY - y0;
+    x0 = null;
+    y0 = null;
+    if (Math.abs(dx) < 52 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    if (dx < 0) handlers.onSwipeLeft?.();
+    else handlers.onSwipeRight?.();
+  };
+
+  el.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches.length !== 1) return;
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  el.addEventListener(
+    'touchend',
+    (e) => {
+      if (x0 == null) return;
+      onEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    },
+    { passive: true }
+  );
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    x0 = e.clientX;
+    y0 = e.clientY;
+  });
+  el.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'mouse' || x0 == null) return;
+    onEnd(e.clientX, e.clientY);
+  });
+}
+
+function initChatCollapse() {
+  try {
+    chatCollapsed = localStorage.getItem(CHAT_COLLAPSED_KEY) === '1';
+  } catch (_) {}
+
+  $('#btn-toggle-chat')?.addEventListener('click', () => {
+    if (!isDesktopLayout()) return;
+    if (!chatCollapsed) {
+      setChatCollapsed(true);
+      return;
+    }
+    if (chatDrawerOpen) {
+      closeChatDrawer();
+      return;
+    }
+    setChatCollapsed(false);
+  });
+
+  $('#chat-fab')?.addEventListener('click', () => openChatDrawer());
+  $('#chat-drawer-backdrop')?.addEventListener('click', () => closeChatDrawer());
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && chatDrawerOpen) closeChatDrawer();
+  });
+
+  bindHorizontalSwipe($('#office-viewport'), {
+    onSwipeLeft: () => {
+      if (isDesktopLayout() && chatCollapsed && !chatDrawerOpen) openChatDrawer();
+    },
+  });
+
+  bindHorizontalSwipe($('#panel-chat'), {
+    onSwipeRight: () => {
+      if (isDesktopLayout() && chatCollapsed && chatDrawerOpen) closeChatDrawer();
+    },
+  });
+
+  applyChatCollapseUI();
+}
+
+function initMobileTabSwipe() {
+  const layout = $('.main-layout');
+  if (!layout) return;
+
+  let x0 = null;
+  let y0 = null;
+  let tracking = false;
+
+  const shouldIgnoreSwipeTarget = (target) => {
+    if (!target?.closest) return false;
+    return !!target.closest(
+      'canvas, textarea, input, select, button, .chat-feed, .modal, .chat-form, .question-actions'
+    );
+  };
+
+  layout.addEventListener(
+    'touchstart',
+    (e) => {
+      if (!window.matchMedia('(max-width: 1023px)').matches) return;
+      if (e.touches.length !== 1) return;
+      if (shouldIgnoreSwipeTarget(e.target)) return;
+      if (e.target.closest('#office-3d, #office-2d, #office-viewport') && !e.target.closest('#office-swipe-edge')) {
+        return;
+      }
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+      tracking = true;
+    },
+    { passive: true }
+  );
+
+  layout.addEventListener(
+    'touchend',
+    (e) => {
+      if (!tracking || x0 == null) return;
+      tracking = false;
+      const dx = e.changedTouches[0].clientX - x0;
+      const dy = e.changedTouches[0].clientY - y0;
+      x0 = null;
+      y0 = null;
+      if (Math.abs(dx) < 44 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+      if (dx < 0) stepMobileTab(1);
+      else stepMobileTab(-1);
+    },
+    { passive: true }
+  );
+
+  bindHorizontalSwipe($('#office-swipe-edge'), {
+    onSwipeLeft: () => {
+      if (window.matchMedia('(max-width: 1023px)').matches && getActiveMobileTab() === 'office') {
+        setMobileTab('chat');
+      }
+    },
+    onSwipeRight: () => {
+      if (window.matchMedia('(max-width: 1023px)').matches && getActiveMobileTab() === 'chat') {
+        setMobileTab('office');
+      }
+    },
+  });
+}
+
 document.querySelectorAll('.mobile-tabs .tab').forEach((btn) => {
   btn.addEventListener('click', () => setMobileTab(btn.dataset.tab));
 });
 
 function initMobileLayout() {
   const isMobile = window.matchMedia('(max-width: 1023px)').matches;
-  if (isMobile) setMobileTab('office');
+  if (isMobile) setMobileTab(getActiveMobileTab() || 'office');
   else {
     document.querySelectorAll('.panel[data-panel]').forEach((p) => p.classList.add('active'));
   }
+  applyChatCollapseUI();
+  updateTopbarOffset();
 }
 initMobileLayout();
+initChatCollapse();
+initMobileTabSwipe();
 window.addEventListener('resize', initMobileLayout);
 
 async function loadLanInfo() {
@@ -857,7 +1194,7 @@ async function connectWs() {
   ws.onmessage = (ev) => {
     try {
       const event = JSON.parse(ev.data);
-      if (event.type === 'message' && isEventForActiveChat(event.data)) {
+      if (event.type === 'message' && isMessageForActiveThread(event.data)) {
         renderMessage(event.data, { live: true });
       }
       if (event.type === 'status') applyStatus(event.data);
@@ -1389,6 +1726,7 @@ function bootScene() {
         else setRenderMode(modeLabel);
         hideLoader();
         updateGfxButtons();
+        wireSceneAgentClicks();
         startAppServices();
         return;
       }
@@ -1405,6 +1743,8 @@ function bootScene() {
     requestAnimationFrame(start);
   }
 }
+
+$('#btn-agent-thread-back')?.addEventListener('click', () => closeAgentChat());
 
 $('#btn-new-chat')?.addEventListener('click', showNewChatModal);
 $('#btn-new-chat-m')?.addEventListener('click', showNewChatModal);
