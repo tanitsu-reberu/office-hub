@@ -19,8 +19,8 @@
 | R1 | Push v28 (H4+H5) на GitHub | done |
 | H1 | Переименование чата в UI | **done** (v29) |
 | H2 | Badge непрочитанных (чаты + агенты) | **done** (v30) |
-| H3 | Drag-drop папки | **next** |
-| H5b | Premium 3D клик по кабинету | pending |
+| H3 | Drag-drop папки | **done** (v31) |
+| H5b | Premium 3D клик по кабинету | **next** |
 | B3.2 | Cloud backend | **done** — Railway `office-hub-production` |
 | B3.4 | Smoke Pages ↔ API ↔ WS | **done** (2026-06-29) |
 | Q1 | check-work A3 + G5 | pending |
@@ -47,7 +47,7 @@
 - [ ] **H5b** Premium 3D (`gfx=high`) — клик по кабинету
 - [x] **H1** PATCH названия чата в UI (v29)
 - [x] **H2** Badge непрочитанных — `read_cursors`, `/api/unread`, `/api/read`, бейджи v30
-- [ ] **H3** Drag-drop папки на зону чата
+- [x] **H3** Drag-drop папки — зона чата, сайдбар, новый чат (v31)
 
 ## Фазы C–G (готово)
 
