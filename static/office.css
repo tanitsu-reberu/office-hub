@@ -500,6 +500,7 @@ body {
 .browse-status.error { color: #dc2626; }
 .browse-status.hidden { display: none; }
 .chat-main {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -604,6 +605,63 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.folder-drop-hint::after {
+  content: ' · перетащите папку сюда';
+  color: var(--ui-text-subtle);
+  font-weight: 400;
+}
+.folder-drop-hint-text {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  color: var(--ui-text-subtle);
+}
+.folder-drop-status {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  color: var(--ui-success);
+}
+.folder-drop-status.error { color: #dc2626; }
+.folder-drop-status.hidden { display: none; }
+.folder-drop-target {
+  position: relative;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+.folder-drop-target.folder-drop-active,
+.chat-main.folder-drop-active {
+  outline: 2px dashed var(--ui-brand);
+  outline-offset: -2px;
+  background: var(--ui-brand-soft);
+}
+.chat-main.folder-drop-active::after {
+  content: 'Отпустите папку — привязать к чату';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 4;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ui-brand-text);
+  background: rgba(232, 237, 244, 0.72);
+  backdrop-filter: blur(2px);
+}
+.chat-sidebar.folder-drop-active::after {
+  content: 'Новый чат с этой папкой';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ui-brand-text);
+  background: rgba(232, 237, 244, 0.85);
+}
+.chat-sidebar { position: relative; }
 .chat-select-mobile {
   flex: 1;
   min-width: 0;

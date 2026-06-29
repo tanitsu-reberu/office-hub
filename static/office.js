@@ -654,6 +654,192 @@ async function openActiveFolder() {
   }
 }
 
+function fileUriToPath(uri) {
+  if (!uri) return '';
+  const line = uri.trim().split(/\r?\n/).find((l) => l && !l.startsWith('#')) || '';
+  if (!line.startsWith('file://')) return '';
+  let p = decodeURIComponent(line.replace(/^file:\/\//i, ''));
+  if (/^\/[A-Za-z]:/.test(p)) p = p.slice(1);
+  p = p.replace(/\//g, '\\');
+  if (/^[A-Za-z]:\\/.test(p) || p.startsWith('\\\\')) return p;
+  return '';
+}
+
+function normalizeFolderPath(raw) {
+  if (!raw) return '';
+  let s = String(raw).trim().replace(/^["']|["']$/g, '');
+  if (s.startsWith('file://')) return fileUriToPath(s);
+  s = s.replace(/\//g, '\\');
+  if (/^[A-Za-z]:\\/.test(s) || s.startsWith('\\\\')) return s;
+  return '';
+}
+
+function suggestNameFromPath(path) {
+  const parts = path.replace(/[/\\]+$/, '').split(/[/\\]/);
+  return parts[parts.length - 1] || 'Мой проект';
+}
+
+function isPhotoOnlyDrag(dt) {
+  const files = [...(dt?.files || [])];
+  return files.length > 0 && files.every((f) => f.type.startsWith('image/'));
+}
+
+function hasFolderDragPayload(dt) {
+  if (!dt) return false;
+  const types = [...(dt.types || [])];
+  if (types.includes('text/plain') || types.includes('text/uri-list') || types.includes('URL')) return true;
+  if (types.includes('Files') && !isPhotoOnlyDrag(dt)) return true;
+  return false;
+}
+
+async function extractFolderPathFromDataTransfer(dt) {
+  if (!dt) return '';
+
+  const plain = dt.getData('text/plain') || dt.getData('text') || '';
+  let path = normalizeFolderPath(plain);
+  if (path) return path;
+
+  const uriList = dt.getData('text/uri-list') || dt.getData('URL') || '';
+  for (const line of uriList.split(/\r?\n/)) {
+    if (!line || line.startsWith('#')) continue;
+    path = fileUriToPath(line) || normalizeFolderPath(line);
+    if (path) return path;
+  }
+
+  if (isPhotoOnlyDrag(dt)) return '';
+
+  const files = [...(dt.files || [])];
+  for (const f of files) {
+    if (f.path) {
+      path = normalizeFolderPath(f.path);
+      if (path) return path;
+    }
+  }
+
+  const items = [...(dt.items || [])];
+  for (const item of items) {
+    if (item.kind !== 'file') continue;
+    const entry = item.webkitGetAsEntry?.();
+    if (entry?.isDirectory) {
+      const f = item.getAsFile();
+      if (f?.path) {
+        path = normalizeFolderPath(f.path);
+        if (path) return path;
+      }
+    }
+  }
+
+  return '';
+}
+
+function setFolderDropStatus(text, isError = false) {
+  const el = $('#folder-drop-status');
+  if (!el) return;
+  if (!text) {
+    el.classList.add('hidden');
+    el.textContent = '';
+    el.classList.remove('error');
+    return;
+  }
+  el.textContent = text;
+  el.classList.remove('hidden');
+  el.classList.toggle('error', isError);
+}
+
+async function bindFolderToActiveChat(folderPath) {
+  if (!activeChatId) return;
+  if (activeAgentThread) {
+    alert('В личном чате агента папку не меняют. Нажмите «← Команда».');
+    return;
+  }
+  const res = await api(`/api/chats/${activeChatId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ folder_path: folderPath }),
+  });
+  const idx = chats.findIndex((c) => c.id === activeChatId);
+  if (idx >= 0) chats[idx] = res.chat;
+  updateChatHeader();
+  renderChatList();
+  setFolderDropStatus(`Папка привязана: ${shortPath(folderPath)}`);
+  setTimeout(() => setFolderDropStatus(''), 4000);
+}
+
+function prefillNewChatFolder(path) {
+  showNewChatModal();
+  const folderInput = $('#new-chat-folder');
+  const nameInput = $('#new-chat-name');
+  if (folderInput) folderInput.value = path;
+  if (nameInput && !nameInput.value.trim()) nameInput.value = suggestNameFromPath(path);
+}
+
+async function handleFolderDrop(path, zone) {
+  if (!path) {
+    const msg = IS_CLOUD_MODE
+      ? 'Не удалось прочитать путь. Drag-drop работает при локальном запуске (launch-office.bat). Введите путь вручную.'
+      : 'Не удалось прочитать путь. Перетащите папку из Проводника Windows или нажмите «Обзор…».';
+    alert(msg);
+    return;
+  }
+
+  if (zone === 'sidebar' || zone === 'new-chat') {
+    prefillNewChatFolder(path);
+    return;
+  }
+
+  if (zone === 'chat') {
+    try {
+      await bindFolderToActiveChat(path);
+    } catch (e) {
+      setFolderDropStatus(e.message || 'Не удалось привязать папку', true);
+      setTimeout(() => setFolderDropStatus(''), 5000);
+    }
+  }
+}
+
+function initFolderDropZone(el, zone) {
+  if (!el) return;
+  el.classList.add('folder-drop-target');
+  let depth = 0;
+
+  const activate = () => el.classList.add('folder-drop-active');
+  const deactivate = () => {
+    depth = 0;
+    el.classList.remove('folder-drop-active');
+  };
+
+  el.addEventListener('dragenter', (e) => {
+    if (!hasFolderDragPayload(e.dataTransfer)) return;
+    e.preventDefault();
+    depth += 1;
+    activate();
+  });
+
+  el.addEventListener('dragleave', () => {
+    depth -= 1;
+    if (depth <= 0) deactivate();
+  });
+
+  el.addEventListener('dragover', (e) => {
+    if (!hasFolderDragPayload(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  el.addEventListener('drop', async (e) => {
+    if (!hasFolderDragPayload(e.dataTransfer)) return;
+    e.preventDefault();
+    deactivate();
+    const path = await extractFolderPathFromDataTransfer(e.dataTransfer);
+    await handleFolderDrop(path, zone);
+  });
+}
+
+function initFolderDropZones() {
+  initFolderDropZone($('#chat-main-drop'), 'chat');
+  initFolderDropZone($('#chat-sidebar'), 'sidebar');
+  initFolderDropZone($('#new-chat-folder-drop'), 'new-chat');
+}
+
 function renderMessage(m, opts = {}) {
   const live = opts.live === true;
   const div = document.createElement('div');
@@ -1798,6 +1984,7 @@ function startAppServices() {
   if (appServicesStarted) return;
   appServicesStarted = true;
   initCloudBanner();
+  initFolderDropZones();
   loadChats()
     .then(() => loadAgents())
     .then(() => loadHistory())

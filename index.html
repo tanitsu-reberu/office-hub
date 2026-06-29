@@ -80,7 +80,7 @@
             </div>
             <ul id="chat-list" class="chat-list"></ul>
           </aside>
-          <div class="chat-main">
+          <div class="chat-main" id="chat-main-drop">
             <div class="panel-head chat-panel-head">
               <div class="chat-head-top">
                 <div class="chat-title-wrap">
@@ -94,7 +94,8 @@
                 <button type="button" class="btn btn-ghost btn-sm" id="btn-agent-thread-back">← Команда</button>
                 <div class="agent-thread-pills" id="agent-thread-pills"></div>
               </div>
-              <p id="chat-folder-path" class="chat-folder-path" title="">Папка проекта</p>
+              <p id="chat-folder-path" class="chat-folder-path folder-drop-hint" title="">Папка проекта</p>
+              <p id="folder-drop-status" class="folder-drop-status hidden" role="status"></p>
               <div id="session-banner" class="session-banner hidden" role="status">
                 <span id="session-banner-text">Сессия активна</span>
                 <button type="button" class="btn btn-ghost btn-sm btn-session-kill" id="btn-session-kill">Остановить</button>
@@ -205,7 +206,8 @@
       <label class="field-label" for="new-chat-name">Название</label>
       <input type="text" id="new-chat-name" class="field-input" placeholder="Мой проект" maxlength="120" />
       <label class="field-label" for="new-chat-folder">Папка</label>
-      <div class="folder-row">
+      <p class="folder-drop-hint-text">Перетащите папку из Проводника в поле ниже или на зону чата.</p>
+      <div class="folder-row folder-drop-target" id="new-chat-folder-drop">
         <input type="text" id="new-chat-folder" class="field-input" placeholder="C:\Users\USER\my-project" />
         <button type="button" class="btn btn-ghost btn-sm" id="btn-browse-folder">Обзор…</button>
       </div>
@@ -264,6 +266,6 @@
   <script src="static/vendor/three.min.js?v=29"></script>
   <script src="static/office-3d.js?v=29"></script>
   <script src="static/office-2d-fallback.js?v=29"></script>
-  <script src="static/office.js?v=30"></script>
+  <script src="static/office.js?v=31"></script>
 </body>
 </html>
