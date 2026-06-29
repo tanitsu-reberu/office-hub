@@ -479,7 +479,39 @@ body {
   gap: 8px;
   flex-wrap: wrap;
 }
+.chat-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
 .chat-panel-head h2 { margin: 0; flex: 1; min-width: 0; }
+.chat-title-text.chat-title-editable {
+  cursor: pointer;
+  border-radius: var(--ui-radius-sm);
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background 0.18s ease-out, color 0.18s ease-out;
+}
+.chat-title-text.chat-title-editable:hover {
+  background: color-mix(in srgb, var(--ui-brand) 10%, transparent);
+}
+.chat-title-text.chat-title-editable:focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.45);
+  outline-offset: 2px;
+}
+.btn-rename-chat {
+  flex-shrink: 0;
+  opacity: 0.72;
+  transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+}
+.btn-rename-chat:hover:not(:disabled) { opacity: 1; transform: scale(1.05); }
+.btn-rename-chat:disabled { opacity: 0.3; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .chat-title-text.chat-title-editable,
+  .btn-rename-chat { transition: none; }
+}
 .agent-thread-bar {
   display: flex;
   align-items: center;
