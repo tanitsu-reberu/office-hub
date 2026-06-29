@@ -18,7 +18,7 @@ import socket
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -1143,6 +1143,7 @@ app.add_middleware(
 async def auth_and_cache_middleware(request: Request, call_next):
     if (
         HUB_TOKEN
+        and not _is_local_request(request)
         and request.method in ("POST", "PUT", "PATCH", "DELETE")
         and request.url.path.startswith("/api/")
         and request.url.path != "/api/health"
@@ -2384,6 +2385,21 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     except WebSocketDisconnect:
         if ws in connections:
             connections.remove(ws)
+
+
+@app.get("/static/hub-config.js")
+async def serve_hub_config() -> Response:
+    """Inject HUB_TOKEN for local / Railway UI (GitHub Pages uses its own hub-config)."""
+    body = (
+        f"window.__HUB_API__ = {json.dumps(os.getenv('PUBLIC_HUB_API', '').strip())};\n"
+        f"window.__HUB_TOKEN__ = {json.dumps(HUB_TOKEN)};\n"
+        f"window.__HUB_BASE__ = {json.dumps(os.getenv('PUBLIC_HUB_BASE', '').strip())};\n"
+    )
+    return Response(
+        content=body,
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
 
 
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
