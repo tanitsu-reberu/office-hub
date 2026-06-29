@@ -292,13 +292,64 @@ def validate_attachments(att: Optional[list[dict[str, str]]]) -> None:
         )
 
 
-def validate_folder_path(raw: str) -> str:
-    if not raw or not raw.strip():
+ALLOW_CLIENT_FOLDER_PATHS = os.getenv("ALLOW_CLIENT_FOLDER_PATHS", "1").strip().lower() not in (
+    "0",
+    "false",
+    "no",
+)
+
+
+def _sanitize_folder_path_raw(raw: str) -> str:
+    s = raw.strip()
+    if not s:
         raise HTTPException(400, "folder_path required")
-    resolved = Path(raw.strip()).expanduser().resolve()
-    if not resolved.is_dir():
+    if "\x00" in s:
+        raise HTTPException(400, "Invalid folder path")
+    if len(s) > 500:
+        raise HTTPException(400, "folder_path too long")
+    return s
+
+
+def _looks_like_windows_path(s: str) -> bool:
+    if len(s) >= 2 and s[1] == ":" and s[0].isalpha():
+        return len(s) == 2 or s[2] in ("\\", "/")
+    return s.startswith("\\\\")
+
+
+def _looks_like_unix_path(s: str) -> bool:
+    return s.startswith("/") and not s.startswith("//")
+
+
+def _normalize_stored_folder_path(s: str) -> str:
+    if _looks_like_windows_path(s):
+        return s.replace("/", "\\")
+    return s
+
+
+def validate_folder_path(raw: str) -> str:
+    """Accept paths that exist on this server, or client-side metadata paths for cloud."""
+    s = _sanitize_folder_path_raw(raw)
+    try:
+        resolved = Path(s).expanduser().resolve()
+        if resolved.is_dir():
+            return str(resolved)
+    except OSError:
+        pass
+
+    if not ALLOW_CLIENT_FOLDER_PATHS:
         raise HTTPException(400, "Folder does not exist")
-    return str(resolved)
+
+    if _looks_like_windows_path(s):
+        if os.name == "nt":
+            raise HTTPException(400, "Folder does not exist")
+        return _normalize_stored_folder_path(s)
+
+    if _looks_like_unix_path(s):
+        if os.name == "nt":
+            raise HTTPException(400, "Folder does not exist")
+        return s
+
+    raise HTTPException(400, "Folder does not exist or invalid path format")
 
 
 def row_to_chat(row: sqlite3.Row) -> dict[str, Any]:
@@ -346,9 +397,16 @@ def chat_bridge_fields(chat_id: int) -> dict[str, Any]:
 
 def get_chat_workspace_root(chat_id: int) -> Path:
     chat = get_chat(chat_id)
-    root = Path(chat["folder_path"]).resolve()
+    try:
+        root = Path(chat["folder_path"]).expanduser().resolve()
+    except OSError:
+        root = Path(chat["folder_path"])
     if not root.is_dir():
-        raise HTTPException(400, "Chat workspace folder missing")
+        raise HTTPException(
+            400,
+            "Chat workspace folder missing on this server. "
+            "Path is stored for Cursor on your PC.",
+        )
     return root
 
 
@@ -1250,6 +1308,8 @@ async def health() -> dict[str, Any]:
         "time": utc_now(),
         "data_dir": str(DATA_DIR),
         "auth": bool(HUB_TOKEN),
+        "client_folder_paths": ALLOW_CLIENT_FOLDER_PATHS,
+        "folder_picker": os.name == "nt",
     }
 
 
@@ -1270,6 +1330,8 @@ async def server_info(request: Request) -> dict[str, Any]:
         "bridge": str(BRIDGE_DIR),
         "data_dir": str(DATA_DIR),
         "cloud_ready": True,
+        "client_folder_paths": ALLOW_CLIENT_FOLDER_PATHS,
+        "folder_picker": os.name == "nt",
     }
 
 
