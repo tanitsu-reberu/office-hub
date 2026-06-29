@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('office_theme') || 'light';
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    })();
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#d8e0ea" />
+  <script src="static/hub-config.js?v=28"></script>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Team Office" />
+  <title>Team Office — штаб агентов</title>
+  <link rel="manifest" href="static/manifest.json" />
+  <link rel="stylesheet" href="static/office.css" />
+</head>
+<body>
+  <div id="notify-stack" class="notify-stack" aria-live="polite"></div>
+
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <h1>Team Office <span class="badge-3d">3D</span></h1>
+        <p class="subtitle">Агенты · кабинеты · мост с Cursor <span class="app-mode-badge hidden" id="app-mode-badge">· приложение</span></p>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-theme" title="Тема оформления">Тема</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-eco" title="2D режим — почти не грузит GPU">Эко 2D</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-reset-cam" title="Сбросить камеру">Камера</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-notify" title="Очистить уведомления">Очистить</button>
+        <button type="button" class="btn btn-ghost btn-sm desktop-only" id="btn-toggle-chat" title="Свернуть чат — офис на весь экран">Свернуть чат</button>
+        <button type="button" class="btn btn-ghost btn-sm lan-btn" id="btn-lan" title="URL для телефона">Телефон</button>
+        <span class="render-mode" id="render-mode-badge" title="Режим визуализации">…</span>
+        <span class="conn"><span id="conn-dot" class="conn-dot"></span><span id="conn-label">…</span></span>
+      </div>
+    </header>
+
+    <div class="cloud-banner hidden" id="cloud-banner" role="status">
+      <span>☁️ Облачный режим — чаты и фото доступны. Агенты ответят, когда ПК включён и в Cursor: «проверь офис».</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-cloud-banner-close" title="Скрыть">×</button>
+    </div>
+
+    <div class="active-task hidden" id="active-task"></div>
+
+    <main class="main-layout">
+      <!-- Office panel -->
+      <section class="panel panel-office" id="panel-office" data-panel="office">
+        <div class="panel-toolbar desktop-only">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-meeting-d">Собрание</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-desks-d">Кабинеты</button>
+        </div>
+        <div class="office-viewport" id="office-viewport">
+          <div class="office-swipe-edge office-swipe-edge--right mobile-only" id="office-swipe-edge" aria-hidden="true"></div>
+          <div id="office-loader" class="office-loader">
+            <div class="loader-spin"></div>
+            <p>Загрузка офиса…</p>
+          </div>
+          <div id="office-3d" class="office-canvas-host"></div>
+          <div id="office-2d" class="office-2d-host hidden"></div>
+          <div id="head-labels" class="head-labels-layer"></div>
+          <div class="office-legend">
+            <span>Клик по кабинету — личный чат · свайп влево — чат</span>
+            <span>Колесо / pinch — zoom</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chat panel -->
+      <section class="panel panel-chat" id="panel-chat" data-panel="chat">
+        <div class="chat-layout">
+          <aside class="chat-sidebar desktop-only" id="chat-sidebar">
+            <div class="chat-sidebar-head">
+              <span>Чаты</span>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-new-chat" title="Новый чат">+</button>
+            </div>
+            <ul id="chat-list" class="chat-list"></ul>
+          </aside>
+          <div class="chat-main">
+            <div class="panel-head chat-panel-head">
+              <div class="chat-head-top">
+                <h2 id="chat-title">Обсуждение</h2>
+                <select id="chat-select-mobile" class="chat-select-mobile mobile-only" aria-label="Выбор чата"></select>
+                <button type="button" class="btn btn-ghost btn-sm mobile-only" id="btn-new-chat-m">+ Чат</button>
+              </div>
+              <div id="agent-thread-bar" class="agent-thread-bar hidden" role="toolbar" aria-label="Личные чаты агентов">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-agent-thread-back">← Команда</button>
+                <div class="agent-thread-pills" id="agent-thread-pills"></div>
+              </div>
+              <p id="chat-folder-path" class="chat-folder-path" title="">Папка проекта</p>
+              <div id="session-banner" class="session-banner hidden" role="status">
+                <span id="session-banner-text">Сессия активна</span>
+                <button type="button" class="btn btn-ghost btn-sm btn-session-kill" id="btn-session-kill">Остановить</button>
+              </div>
+              <div class="chat-head-actions">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-session-start" title="15 мин авто-выполнения команд">Сессия 15 мин</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-open-folder" title="Открыть папку в Cursor">Открыть в Cursor</button>
+                <button type="button" class="btn btn-ghost btn-sm btn-delete-chat" id="btn-delete-chat" title="Удалить чат">Удалить</button>
+              </div>
+            </div>
+            <div id="chat-feed" class="chat-feed"></div>
+            <form id="chat-form" class="chat-form">
+              <div id="photo-preview" class="photo-preview hidden"></div>
+              <textarea id="chat-input" rows="3" placeholder="Напишите задачу команде…"></textarea>
+              <div class="chat-actions">
+                <input type="file" id="chat-photo" class="hidden" accept="image/*" multiple />
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-photo" title="Прикрепить фото">📎 Фото</button>
+                <button type="submit" class="btn btn-primary">Отправить</button>
+                <button type="button" id="btn-summon" class="btn btn-accent">$team призвать</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Team panel (mobile + sidebar on desktop) -->
+      <section class="panel panel-team" id="panel-team" data-panel="team">
+        <div class="panel-head">
+          <h2>Команда</h2>
+          <p>Статусы агентов</p>
+        </div>
+        <div class="team-actions mobile-only">
+          <button type="button" class="btn btn-ghost" id="btn-meeting">Собрание</button>
+          <button type="button" class="btn btn-ghost" id="btn-desks">Кабинеты</button>
+          <button type="button" class="btn btn-accent" id="btn-summon-team">$team призвать</button>
+        </div>
+        <div id="team-cards" class="team-cards"></div>
+        <div class="bridge-hint">
+          <p>Мост: <code>office-hub/bridge/from-office.jsonl</code></p>
+          <p class="hint-cursor">В Cursor: «проверь офис»</p>
+        </div>
+      </section>
+    </main>
+
+    <button type="button" class="chat-fab desktop-only hidden" id="chat-fab" title="Открыть чат" aria-label="Открыть чат">💬</button>
+    <div class="chat-drawer-backdrop desktop-only hidden" id="chat-drawer-backdrop" aria-hidden="true"></div>
+
+    <nav class="mobile-tabs mobile-only" id="mobile-tabs" aria-label="Навигация">
+      <button type="button" class="tab active" data-tab="office">Офис</button>
+      <button type="button" class="tab" data-tab="chat">Чат</button>
+      <button type="button" class="tab" data-tab="team">Команда</button>
+    </nav>
+  </div>
+
+  <div id="session-modal" class="modal hidden" role="dialog" aria-label="Сессия команд">
+    <div class="modal-box session-box">
+      <div class="question-head">
+        <span id="s-emoji" class="q-emoji"></span>
+        <strong id="s-agent-name"></strong>
+      </div>
+      <p id="s-reason" class="a-reason hidden"></p>
+      <p class="a-hint">Агент запрашивает <strong>15 минут</strong> авто-выполнения команд из whitelist в папке чата. Вы можете остановить сессию в любой момент.</p>
+      <div class="question-actions">
+        <button type="button" class="btn btn-primary" id="s-approve">Разрешить</button>
+        <button type="button" class="btn btn-ghost" id="s-reject">Отклонить</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="action-modal" class="modal hidden" role="dialog" aria-label="Команда от агента">
+    <div class="modal-box action-box">
+      <div class="question-head">
+        <span id="a-emoji" class="q-emoji"></span>
+        <strong id="a-agent-name"></strong>
+      </div>
+      <p id="a-reason" class="a-reason hidden"></p>
+      <pre id="a-command" class="a-command"></pre>
+      <p class="a-hint">Команда выполнится в папке чата. Разрешены: git, npm, npx, py, python, pip, node, cargo, uvicorn.</p>
+      <div class="question-actions">
+        <button type="button" class="btn btn-primary" id="a-approve">Разрешить</button>
+        <button type="button" class="btn btn-ghost" id="a-reject">Отклонить</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="question-modal" class="modal hidden" role="dialog" aria-label="Вопрос от агента">
+    <div class="modal-box question-box">
+      <div class="question-head">
+        <span id="q-emoji" class="q-emoji"></span>
+        <strong id="q-agent-name"></strong>
+      </div>
+      <p id="q-text" class="q-text"></p>
+      <img id="q-image" class="q-image hidden" alt="" />
+      <div id="q-options" class="q-options"></div>
+      <textarea id="q-answer-text" rows="2" placeholder="Или ответьте своими словами…"></textarea>
+      <div class="question-actions">
+        <button type="button" class="btn btn-primary" id="q-submit">Ответить</button>
+        <button type="button" class="btn btn-ghost" id="q-later">Позже</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="new-chat-modal" class="modal hidden" role="dialog" aria-label="Новый чат">
+    <div class="modal-box">
+      <h3>Новый чат</h3>
+      <p>Каждый чат привязан к своей папке проекта.</p>
+      <label class="field-label" for="new-chat-name">Название</label>
+      <input type="text" id="new-chat-name" class="field-input" placeholder="Мой проект" maxlength="120" />
+      <label class="field-label" for="new-chat-folder">Папка</label>
+      <div class="folder-row">
+        <input type="text" id="new-chat-folder" class="field-input" placeholder="C:\Users\USER\my-project" />
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-browse-folder">Обзор…</button>
+      </div>
+      <p id="browse-folder-status" class="browse-status hidden"></p>
+      <div class="question-actions">
+        <button type="button" class="btn btn-primary" id="btn-create-chat">Создать</button>
+        <button type="button" class="btn btn-ghost" id="btn-cancel-chat">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="delete-chat-modal" class="modal hidden" role="dialog" aria-label="Удалить чат">
+    <div class="modal-box">
+      <h3>Удалить чат?</h3>
+      <p>Чат <strong id="delete-chat-name"></strong> и все его сообщения будут удалены безвозвратно.</p>
+      <div class="question-actions">
+        <button type="button" class="btn btn-accent" id="btn-confirm-delete-chat">Удалить</button>
+        <button type="button" class="btn btn-ghost" id="btn-cancel-delete-chat">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="theme-modal" class="modal hidden" role="dialog" aria-label="Тема оформления">
+    <div class="modal-box">
+      <h3>Тема оформления</h3>
+      <p>Меняет интерфейс и 3D-офис. Сохраняется в браузере.</p>
+      <div class="theme-grid" id="theme-cards"></div>
+      <div class="question-actions">
+        <button type="button" class="btn btn-primary" id="btn-theme-close">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lan-modal" class="modal hidden" role="dialog" aria-label="Доступ с телефона">
+    <div class="modal-box">
+      <h3>Открыть с телефона</h3>
+      <p>Телефон должен быть в той же Wi‑Fi сети.</p>
+      <div class="lan-urls" id="lan-urls"></div>
+      <button type="button" class="btn btn-primary" id="btn-lan-close">Закрыть</button>
+    </div>
+  </div>
+
+  <script src="static/themes.js?v=28"></script>
+  <script src="static/vendor/three.min.js?v=28"></script>
+  <script src="static/office-3d.js?v=28"></script>
+  <script src="static/office-2d-fallback.js?v=28"></script>
+  <script src="static/office.js?v=28"></script>
+</body>
+</html>

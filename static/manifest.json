@@ -1,0 +1,11 @@
+{
+  "name": "Team Office",
+  "short_name": "Office",
+  "description": "Визуальный штаб агентов команды",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "orientation": "any",
+  "lang": "ru"
+}

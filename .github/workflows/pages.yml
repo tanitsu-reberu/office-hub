@@ -1,0 +1,52 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare static site
+        shell: bash
+        env:
+          HUB_API: ${{ vars.HUB_API }}
+          HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+          HUB_BASE: ${{ vars.HUB_BASE }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          HUB_BASE="${HUB_BASE:-/office-hub}"
+          if [ -z "$HUB_BASE" ] && [ -n "$GITHUB_REPOSITORY" ]; then
+            repo_name="${GITHUB_REPOSITORY#*/}"
+            if [ -n "$repo_name" ]; then HUB_BASE="/$repo_name"; fi
+          fi
+          rm -rf _site
+          mkdir -p _site/static
+          cp -r static/* _site/static/
+          cp static/index.html _site/index.html
+          touch _site/.nojekyll
+          api_js="${HUB_API:-}"
+          token_js="${HUB_TOKEN:-}"
+          base_js="${HUB_BASE:-}"
+          printf '%s\n' \
+            "window.__HUB_API__ = '$api_js';" \
+            "window.__HUB_TOKEN__ = '$token_js';" \
+            "window.__HUB_BASE__ = '$base_js';" \
+            > _site/static/hub-config.js
+
+      - name: Publish gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
