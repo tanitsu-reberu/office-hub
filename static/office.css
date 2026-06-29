@@ -313,6 +313,16 @@ body {
   opacity: 1;
   pointer-events: auto;
 }
+.chat-fab > .unread-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  margin: 0;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.62rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
 .chat-fab {
   position: fixed;
   right: 18px;
@@ -391,16 +401,39 @@ body {
   flex-direction: column;
   gap: 4px;
 }
+.unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 4px;
+  border-radius: var(--ui-radius-pill);
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.unread-badge.hidden { display: none; }
 .chat-list-item {
+  position: relative;
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
   border-radius: var(--ui-radius-sm);
   background: transparent;
   padding: 7px 8px;
+  padding-right: 28px;
   cursor: pointer;
   font-size: 0.72rem;
   color: var(--ui-text);
+}
+.chat-list-item > .unread-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  margin: 0;
 }
 .chat-list-item:hover {
   background: var(--ui-surface);
@@ -528,6 +561,7 @@ body {
   min-width: 0;
 }
 .agent-thread-pill {
+  position: relative;
   border: 1px solid var(--ui-border);
   background: var(--ui-surface-muted);
   color: var(--ui-text);
@@ -538,16 +572,28 @@ body {
   font-family: inherit;
   white-space: nowrap;
 }
+.agent-thread-pill > .unread-badge {
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  margin: 0;
+}
 .agent-thread-pill:hover { border-color: var(--accent, #8b5cf6); }
 .agent-thread-pill.active {
   background: color-mix(in srgb, var(--accent, #8b5cf6) 18%, transparent);
   border-color: var(--accent, #8b5cf6);
   font-weight: 600;
 }
-.team-card { cursor: pointer; transition: box-shadow 0.15s; }
+.team-card { position: relative; cursor: pointer; transition: box-shadow 0.15s; }
 .team-card:hover { filter: brightness(1.04); }
 .team-card.active-thread {
   box-shadow: 0 0 0 2px var(--accent, #8b5cf6);
+}
+.team-card > .unread-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  margin: 0;
 }
 .iso-room[data-room] { cursor: pointer; }
 .chat-folder-path {
@@ -1033,9 +1079,17 @@ body {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .mobile-tabs .tab {
+    position: relative;
     flex: 1; padding: 12px 8px;
     background: none; border: none; color: var(--ui-text-muted);
     font-size: 0.78rem; font-weight: 500; cursor: pointer;
+  }
+  .mobile-tabs .tab .tab-unread-badge {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(14px);
+    margin: 0;
   }
   .mobile-tabs .tab.active { color: var(--ui-brand-text); border-top: 2px solid var(--ui-accent-badge); margin-top: -1px; }
 

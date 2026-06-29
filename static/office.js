@@ -19,6 +19,8 @@ let activeAgentThread = null;
 let agentsMeta = {};
 let chats = [];
 let chatPendingDelete = null;
+let unreadByChat = {};
+let markReadTimer = null;
 const CHAT_STORAGE_KEY = 'office_active_chat_id';
 const THEME_STORAGE_KEY = 'office_theme';
 const CHAT_COLLAPSED_KEY = 'office_chat_collapsed';
@@ -278,6 +280,7 @@ function renderAgentThreadPills() {
   container.querySelectorAll('[data-agent-thread]').forEach((btn) => {
     btn.addEventListener('click', () => openAgentChat(btn.dataset.agentThread));
   });
+  renderUnreadBadges();
 }
 
 function updateAgentThreadUI() {
@@ -314,6 +317,7 @@ function openAgentChat(agentId) {
   loadHistory().then(() => {
     historyLoaded = true;
     input?.focus();
+    scheduleMarkActiveThreadRead();
   });
 }
 
@@ -324,12 +328,127 @@ function closeAgentChat() {
   historyLoaded = false;
   loadHistory().then(() => {
     historyLoaded = true;
+    scheduleMarkActiveThreadRead();
   });
 }
 
 function wireSceneAgentClicks() {
   if (sceneApi?.setAgentDeskClickHandler) {
     sceneApi.setAgentDeskClickHandler((id) => openAgentChat(id));
+  }
+}
+
+function getUnreadForChat(chatId) {
+  return unreadByChat[String(chatId)] || { team: 0, agents: {}, total: 0 };
+}
+
+function getActiveChatUnread() {
+  return getUnreadForChat(activeChatId);
+}
+
+function formatUnreadBadge(n) {
+  if (!n || n <= 0) return '';
+  return n > 99 ? '99+' : String(n);
+}
+
+function ensureUnreadBadge(parent, className = 'unread-badge') {
+  let badge = parent.querySelector(`.${className}`);
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = className;
+    parent.appendChild(badge);
+  }
+  return badge;
+}
+
+function setBadgeCount(el, n, className = 'unread-badge') {
+  if (!el) return;
+  const badge = ensureUnreadBadge(el, className);
+  badge.textContent = formatUnreadBadge(n);
+  badge.classList.toggle('hidden', !n);
+}
+
+async function loadUnread() {
+  try {
+    const res = await api('/api/unread');
+    unreadByChat = res.by_chat || {};
+    renderUnreadBadges();
+  } catch (_) {}
+}
+
+async function markThreadRead(chatId, targetAgent) {
+  if (!chatId) return;
+  try {
+    const res = await api('/api/read', {
+      method: 'POST',
+      body: JSON.stringify({ chat_id: chatId, target_agent: targetAgent || null }),
+    });
+    unreadByChat = res.by_chat || unreadByChat;
+    renderUnreadBadges();
+  } catch (_) {}
+}
+
+function isChatFeedVisible() {
+  if (isDesktopLayout()) return !chatCollapsed || chatDrawerOpen;
+  return getActiveMobileTab() === 'chat';
+}
+
+function isViewingThread(chatId, targetAgent) {
+  const ta = targetAgent || null;
+  if (activeChatId !== chatId) return false;
+  if ((activeAgentThread || null) !== ta) return false;
+  return isChatFeedVisible();
+}
+
+function markActiveThreadRead() {
+  if (!activeChatId || !isChatFeedVisible()) return;
+  markThreadRead(activeChatId, activeAgentThread);
+}
+
+function scheduleMarkActiveThreadRead() {
+  clearTimeout(markReadTimer);
+  markReadTimer = setTimeout(() => markActiveThreadRead(), 200);
+}
+
+function bumpUnreadLocal(m) {
+  if (!m || m.chat_id == null) return;
+  const cid = String(m.chat_id);
+  if (!unreadByChat[cid]) unreadByChat[cid] = { team: 0, agents: {}, total: 0 };
+  const entry = unreadByChat[cid];
+  const ta = m.target_agent || null;
+  if (ta) entry.agents[ta] = (entry.agents[ta] || 0) + 1;
+  else entry.team = (entry.team || 0) + 1;
+  entry.total = (entry.total || 0) + 1;
+  renderUnreadBadges();
+}
+
+function renderUnreadBadges() {
+  document.querySelectorAll('.chat-list-item[data-chat-id]').forEach((btn) => {
+    const n = getUnreadForChat(Number(btn.dataset.chatId)).total;
+    setBadgeCount(btn, n);
+  });
+
+  const active = getActiveChatUnread();
+  document.querySelectorAll('[data-team-card]').forEach((card) => {
+    setBadgeCount(card, active.agents?.[card.dataset.teamCard] || 0);
+  });
+
+  document.querySelectorAll('[data-agent-thread]').forEach((btn) => {
+    setBadgeCount(btn, active.agents?.[btn.dataset.agentThread] || 0);
+  });
+
+  const chatUnread = active.team || 0;
+  const teamUnread = AGENT_ORDER.reduce((s, id) => s + (active.agents?.[id] || 0), 0);
+  setBadgeCount(document.querySelector('.mobile-tabs .tab[data-tab="chat"]'), chatUnread, 'unread-badge tab-unread-badge');
+  setBadgeCount(document.querySelector('.mobile-tabs .tab[data-tab="team"]'), teamUnread, 'unread-badge tab-unread-badge');
+
+  const fab = $('#chat-fab');
+  if (fab) {
+    let totalAll = 0;
+    Object.values(unreadByChat).forEach((e) => {
+      totalAll += e.total || 0;
+    });
+    setBadgeCount(fab, totalAll);
   }
 }
 
@@ -380,6 +499,7 @@ function renderChatList() {
   }
   updateChatHeader();
   updateDeleteButtons();
+  renderUnreadBadges();
 }
 
 async function loadChats() {
@@ -393,26 +513,31 @@ async function loadChats() {
   const valid = chats.some((c) => c.id === stored);
   saveActiveChatId(valid ? stored : chats[0].id);
   renderChatList();
+  await loadUnread();
 }
 
 async function selectChat(id) {
-  if (!id || id === activeChatId) return;
-  saveActiveChatId(id);
-  activeAgentThread = null;
-  updateAgentThreadUI();
-  renderChatList();
-  hideActiveTask();
-  hideQuestionModal();
-  hideActionModal();
-  hideSessionModal();
-  stopSessionCountdown();
-  historyLoaded = false;
-  await loadHistory();
-  historyLoaded = true;
-  await loadPendingQuestion();
-  await loadPendingAction();
-  await loadPendingSession();
-  await loadActiveSession();
+  if (!id) return;
+  const changing = id !== activeChatId;
+  if (changing) {
+    saveActiveChatId(id);
+    activeAgentThread = null;
+    updateAgentThreadUI();
+    renderChatList();
+    hideActiveTask();
+    hideQuestionModal();
+    hideActionModal();
+    hideSessionModal();
+    stopSessionCountdown();
+    historyLoaded = false;
+    await loadHistory();
+    historyLoaded = true;
+    await loadPendingQuestion();
+    await loadPendingAction();
+    await loadPendingSession();
+    await loadActiveSession();
+  }
+  scheduleMarkActiveThreadRead();
 }
 
 function showNewChatModal() {
@@ -582,6 +707,7 @@ function renderTeamCards(agentsMeta) {
   teamCards.querySelectorAll('.team-card').forEach((card) => {
     card.addEventListener('click', () => openAgentChat(card.dataset.teamCard));
   });
+  renderUnreadBadges();
 }
 
 function showActiveTask(taskId, text) {
@@ -830,6 +956,7 @@ form.addEventListener('submit', async (e) => {
         }),
       });
     }
+    scheduleMarkActiveThreadRead();
   } catch (err) {
     setPhotoUploadStatus('');
     alert(err.message || 'Не удалось отправить');
@@ -951,6 +1078,7 @@ function setMobileTab(tab) {
     t.classList.toggle('active', t.dataset.tab === tab);
   });
   if (tab === 'office') setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+  if (tab === 'chat') scheduleMarkActiveThreadRead();
 }
 
 function getActiveMobileTab() {
@@ -1026,6 +1154,7 @@ function openChatDrawer() {
   if (!chatCollapsed || !isDesktopLayout()) return;
   chatDrawerOpen = true;
   applyChatCollapseUI();
+  scheduleMarkActiveThreadRead();
 }
 
 function closeChatDrawer() {
@@ -1260,8 +1389,14 @@ async function connectWs() {
   ws.onmessage = (ev) => {
     try {
       const event = JSON.parse(ev.data);
-      if (event.type === 'message' && isMessageForActiveThread(event.data)) {
-        renderMessage(event.data, { live: true });
+      if (event.type === 'message') {
+        const m = event.data;
+        if (isViewingThread(m.chat_id, m.target_agent || null)) {
+          renderMessage(m, { live: true });
+          scheduleMarkActiveThreadRead();
+        } else {
+          bumpUnreadLocal(m);
+        }
       }
       if (event.type === 'status') applyStatus(event.data);
       if (event.type === 'team_summon' && isEventForActiveChat(event)) {
@@ -1668,6 +1803,7 @@ function startAppServices() {
     .then(() => loadHistory())
     .then(() => {
       historyLoaded = true;
+      scheduleMarkActiveThreadRead();
       return loadStatuses();
     })
     .then(() => loadPendingQuestion())
