@@ -94,6 +94,7 @@ function SceneContent({ store, cameraRef, onCameraReady }: SceneContentProps) {
       {CUBICLES.map(([x, z, rot, accent, id]) => (
         <Cubicle
           key={id}
+          agentId={id}
           x={x}
           z={z}
           rot={rot}

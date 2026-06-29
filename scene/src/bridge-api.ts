@@ -13,6 +13,7 @@ export interface Office3DApi {
   clearNotifications: () => void;
   resetCamera: () => void;
   focusAgent: (id: string) => void;
+  setAgentDeskClickHandler: (fn: ((id: string) => void) | null) => void;
   onQuestion: (agentId: string, payload: Record<string, unknown>) => void;
   onQuestionAnswered: (agentId: string) => void;
   onAction: (agentId: string, payload: Record<string, unknown>) => void;

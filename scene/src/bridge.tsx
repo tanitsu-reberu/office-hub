@@ -12,6 +12,7 @@ import { applyScenePalette, getInitialThemeId } from './theme/palette';
 import { OfficeScene } from './OfficeScene';
 import type { Office3DApi } from './bridge-api';
 import { isAgentId } from './bridge-api';
+import { setAgentDeskClickHandler as bindDeskClickHandler } from './deskClick';
 import type { CameraRigHandle } from './components/CameraRig';
 import { setLabelLayer } from './components/DomLabels';
 import { bindNotifyStack, clearNotifications, pushTopNotification } from './notifications';
@@ -155,6 +156,16 @@ const api: Office3DApi = {
     globalCameraRef.current?.focusAgent(id);
     store.showBubble(id, `${store.getState().agents[id].meta.name} — кабинет`);
     setTimeout(() => store?.hideBubble(id), 5000);
+  },
+
+  setAgentDeskClickHandler(fn) {
+    bindDeskClickHandler(
+      fn
+        ? (id) => {
+            if (isAgentId(id)) fn(id);
+          }
+        : null
+    );
   },
 
   onQuestion(agentId, payload) {

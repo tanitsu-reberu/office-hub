@@ -1,6 +1,8 @@
 import { useRef } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
 import { Group } from 'three';
-import { BLOOM_LAYER } from '../constants';
+import { BLOOM_LAYER, type AgentId } from '../constants';
+import { invokeAgentDeskClick } from '../deskClick';
 import { palette } from '../theme/palette';
 
 interface CubicleProps {
@@ -9,16 +11,36 @@ interface CubicleProps {
   rot: number;
   accent: string;
   screenIntensity: number;
+  agentId: AgentId;
 }
 
-export function Cubicle({ x, z, rot, accent, screenIntensity }: CubicleProps) {
+function onDeskPointerClick(e: ThreeEvent<MouseEvent>, agentId: AgentId) {
+  e.stopPropagation();
+  invokeAgentDeskClick(agentId);
+}
+
+export function Cubicle({ x, z, rot, accent, screenIntensity, agentId }: CubicleProps) {
   const groupRef = useRef<Group>(null);
   const emissive =
     palette.emissive.screenMin +
     Math.min(screenIntensity, 1) * palette.emissive.screenBoost;
 
   return (
-    <group ref={groupRef} position={[x, 0, z]} rotation={[0, rot, 0]}>
+    <group ref={groupRef} position={[x, 0, z]} rotation={[0, rot, 0]} userData={{ agentId }}>
+      <mesh
+        position={[0, 1.1, 0]}
+        onClick={(e) => onDeskPointerClick(e, agentId)}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = '';
+        }}
+      >
+        <boxGeometry args={[3.5, 2.4, 3.1]} />
+        <meshBasicMaterial visible={false} depthWrite={false} />
+      </mesh>
       <mesh position={[0, 0.04, 0]} receiveShadow>
         <boxGeometry args={[3.6, 0.08, 3.2]} />
         <meshStandardMaterial

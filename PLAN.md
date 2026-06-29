@@ -20,7 +20,7 @@
 | H1 | Переименование чата в UI | **done** (v29) |
 | H2 | Badge непрочитанных (чаты + агенты) | **done** (v30) |
 | H3 | Drag-drop папки | **done** (v31) |
-| H5b | Premium 3D клик по кабинету | **next** |
+| H5b | Premium 3D клик по кабинету | **done** (v32) |
 | B3.2 | Cloud backend | **done** — Railway `office-hub-production` |
 | B3.4 | Smoke Pages ↔ API ↔ WS | **done** (2026-06-29) |
 | Q1 | check-work A3 + G5 | pending |
@@ -44,7 +44,7 @@
 - [x] **H4b** Mobile: свайп между вкладками
 - [ ] **H4** Floating chat window — позже
 - [x] **H5** Личный чат — клик по кабинету, `target_agent`, `POST /api/agents/{id}/task` (v28, Classic+2D)
-- [ ] **H5b** Premium 3D (`gfx=high`) — клик по кабинету
+- [x] **H5b** Premium 3D (`gfx=high`) — клик по кабинету, `setAgentDeskClickHandler` (v32)
 - [x] **H1** PATCH названия чата в UI (v29)
 - [x] **H2** Badge непрочитанных — `read_cursors`, `/api/unread`, `/api/read`, бейджи v30
 - [x] **H3** Drag-drop папки — зона чата, сайдбар, новый чат (v31)
@@ -80,3 +80,4 @@
 | 2026-06-29 | Backend | Railway deploy, B3.4 smoke OK |
 | 2026-06-29 | Backend | `deploy/set_github_actions.py` — авто GitHub vars |
 | 2026-06-29 | Frontend | H2 unread badges v30 |
+| 2026-06-29 | Frontend | H5b Premium 3D desk clicks v32 |
