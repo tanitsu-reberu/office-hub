@@ -1930,7 +1930,7 @@ function loadPremiumBundle() {
   if (premiumLoadPromise) return premiumLoadPromise;
   premiumLoadPromise = new Promise((resolve) => {
     const s = document.createElement('script');
-    s.src = staticUrl('scene/office-scene.js?v=26');
+    s.src = staticUrl('scene/office-scene.js?v=32');
     s.async = true;
     s.onload = () => resolve(!!(window.Office3DR3F || window.Office3D));
     s.onerror = () => resolve(false);
