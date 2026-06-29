@@ -1,6 +1,6 @@
 /* Team Office — UI, chat, tabs, bridge to 3D/2D scene */
 const HUB_API = (window.__HUB_API__ || '').replace(/\/$/, '');
-const HUB_TOKEN = window.__HUB_TOKEN__ || '';
+let hubToken = (window.__HUB_TOKEN__ || '').trim();
 const IS_CLOUD_MODE = Boolean(HUB_API);
 const CLOUD_BANNER_KEY = 'office_cloud_banner_dismissed';
 const IS_APP_MODE = new URLSearchParams(location.search).get('app') === '1';
@@ -1006,27 +1006,50 @@ function hubUrl(path) {
   return HUB_API ? `${HUB_API}${path}` : path;
 }
 
+async function ensureHubToken() {
+  if (hubToken) return hubToken;
+  if (IS_CLOUD_MODE) return hubToken;
+  try {
+    const res = await fetch(hubUrl('/api/office/ws-token'));
+    if (res.ok) {
+      const data = await res.json();
+      hubToken = (data.token || '').trim();
+    }
+  } catch (_) {}
+  return hubToken;
+}
+
 function hubHeaders(extra = {}) {
   const h = { 'Content-Type': 'application/json', ...extra };
-  if (HUB_TOKEN) h['X-Hub-Token'] = HUB_TOKEN;
+  if (hubToken) h['X-Hub-Token'] = hubToken;
   return h;
 }
 
+function formatApiError(status, raw) {
+  let msg = raw || `HTTP ${status}`;
+  try {
+    const j = JSON.parse(raw);
+    if (j.detail) {
+      msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
+    }
+  } catch (_) {}
+  if (status === 401 && /hub token/i.test(msg)) {
+    return IS_CLOUD_MODE
+      ? 'Неверный токен. Обновите страницу (Ctrl+F5). Если не поможет — HUB_TOKEN на GitHub и Railway должен совпадать.'
+      : 'Неверный токен. Перезапустите launch-office.bat.';
+  }
+  return msg;
+}
+
 async function api(path, opts = {}) {
+  await ensureHubToken();
   const r = await fetch(hubUrl(path), {
     ...opts,
     headers: { ...hubHeaders(), ...(opts.headers || {}) },
   });
   if (!r.ok) {
     const raw = await r.text();
-    let msg = raw || `HTTP ${r.status}`;
-    try {
-      const j = JSON.parse(raw);
-      if (j.detail) {
-        msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
-      }
-    } catch (_) {}
-    throw new Error(msg);
+    throw new Error(formatApiError(r.status, raw));
   }
   return r.json();
 }
@@ -1169,10 +1192,11 @@ function setPhotoUploadStatus(text) {
 }
 
 async function uploadPhoto(file) {
+  await ensureHubToken();
   const fd = new FormData();
   fd.append('file', file);
   const headers = {};
-  if (HUB_TOKEN) headers['X-Hub-Token'] = HUB_TOKEN;
+  if (hubToken) headers['X-Hub-Token'] = hubToken;
   const r = await fetch(hubUrl('/api/uploads'), { method: 'POST', headers, body: fd });
   if (!r.ok) {
     const raw = await r.text();
@@ -1638,25 +1662,10 @@ $('#btn-lan')?.addEventListener('click', async () => {
 });
 $('#btn-lan-close')?.addEventListener('click', () => $('#lan-modal')?.classList.add('hidden'));
 
-let wsHubToken = HUB_TOKEN;
-
-async function ensureWsToken() {
-  if (wsHubToken) return wsHubToken;
-  try {
-    const base = HUB_API || `${location.protocol}//${location.host}`;
-    const res = await fetch(`${base}/api/office/ws-token`);
-    if (res.ok) {
-      const data = await res.json();
-      wsHubToken = data.token || '';
-    }
-  } catch (_) {}
-  return wsHubToken;
-}
-
 async function connectWs() {
   const base = HUB_API || `${location.protocol}//${location.host}`;
   const wsBase = base.replace(/^http/, 'ws');
-  const token = await ensureWsToken();
+  const token = await ensureHubToken();
   const tokenQ = token ? `?token=${encodeURIComponent(token)}` : '';
   const ws = new WebSocket(`${wsBase}/ws${tokenQ}`);
 
