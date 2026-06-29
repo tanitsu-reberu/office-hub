@@ -12,8 +12,6 @@ ENV DATA_DIR=/data
 ENV PORT=8765
 ENV PYTHONUNBUFFERED=1
 
-VOLUME ["/data"]
-
 EXPOSE 8765
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
