@@ -23,13 +23,13 @@
 | H5b | Premium 3D клик по кабинету | **done** (v32) |
 | B3.2 | Cloud backend | **done** — Railway `office-hub-production` |
 | B3.4 | Smoke Pages ↔ API ↔ WS | **done** (2026-06-29) |
-| Q1 | check-work A3 + G5 | pending |
+| Q1 | check-work A3 + G5 | **done** |
 
 ## Фазы
 
 - [x] **A1** Designer — `design/bright-office-spec.md`
 - [x] **A2** Frontend — светлая сцена + CSS + build v10
-- [ ] **A3** Check-work — FPS smoke, WebGL errors
+- [x] **A3** Check-work — `scripts/smoke-3d.ps1` Classic + Premium WebGL/FPS
 - [x] **B1** Backend — CORS, DATA_DIR, HUB_TOKEN, Dockerfile, /api/health
 - [x] **B2** Frontend — `__HUB_API__` remote mode
 - [x] **B3** Deploy — Pages workflow + cloud backend + skill update
@@ -56,7 +56,7 @@
 - [x] **E** E1–E4 workspace / exec / sessions / MCP
 - [x] **F** Мультифото (до 7)
 - [x] **G1–G4** Темы Office
-- [ ] **G5** check-work smoke (Classic + Premium)
+- [x] **G5** check-work smoke (Classic + Premium) — 2026-06-29 PASS
 
 ## Ограничения
 
@@ -81,3 +81,4 @@
 | 2026-06-29 | Backend | `deploy/set_github_actions.py` — авто GitHub vars |
 | 2026-06-29 | Frontend | H2 unread badges v30 |
 | 2026-06-29 | Frontend | H5b Premium 3D desk clicks v32 |
+| 2026-06-29 | QA | A3/G5 smoke: Classic 21fps, Premium 6fps (headless) |

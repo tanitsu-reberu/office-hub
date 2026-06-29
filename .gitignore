@@ -8,6 +8,7 @@ scene/node_modules/
 scene/dist/
 _site/
 test-results/
+scripts/smoke-3d-report.json
 scripts/github_batch*.json
 scripts/_mcp_*
 scripts/_create_*

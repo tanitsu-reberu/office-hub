@@ -29,6 +29,16 @@ cd C:\Users\USER\office-hub
 .\launch-office.ps1 -Gfx eco2d    # 2D без WebGL
 ```
 
+### Smoke-тест 3D (A3/G5)
+
+Проверка WebGL + FPS для Classic и Premium:
+
+```powershell
+.\scripts\smoke-3d.ps1
+```
+
+Отчёт: `scripts/smoke-3d-report.json`. Строгий FPS на реальном GPU: `$env:SMOKE_HEADED='1'; .\scripts\smoke-3d.ps1`
+
 ### Ярлык на рабочий стол
 
 ```powershell
